@@ -163,7 +163,7 @@ module Corm
         statement = "INSERT INTO #{keyspace}.#{table} (#{fields.keys.join ','}) VALUES (#{values});"
         statements['save'] = session.prepare statement
       end
-      puts execute statements['save'], arguments: fields.keys.map{|k| record[k]}
+      execute statements['save'], arguments: fields.keys.map{|k| record[k]}
       nil
     end
 
