@@ -10,12 +10,12 @@ module Corm
   class Model
 
     def self.configure opts = {}
-      @@cluster = Cassandra.cluster opts
+      @cluster = Cassandra.cluster opts
     end
 
     def self.cluster
-      @@cluster ||= nil
-      @@cluster
+      @cluster ||= nil
+      @cluster
     end
 
     def self.execute *args
@@ -79,8 +79,8 @@ module Corm
     end
 
     def self.fields
-      @@fields ||= {}
-      @@fields
+      @fields ||= {}
+      @fields
     end
 
     def self.get relations
@@ -95,33 +95,33 @@ module Corm
     end
 
     def self.keyspace name = nil
-      @@keyspace = name.to_s unless name.nil?
-      @@keyspace
+      @keyspace = name.to_s unless name.nil?
+      @keyspace
     end
 
     def self.primary_key partition_key = nil, *cols
-      @@primary_key = [Array(partition_key), cols] unless partition_key.nil?
-      @@primary_key
+      @primary_key = [Array(partition_key), cols] unless partition_key.nil?
+      @primary_key
     end
 
     def self.properties *args
-      @@properties ||= args
-      @@properties
+      @properties ||= args
+      @properties
     end
 
     def self.session
-      @@session ||= cluster.connect keyspace
-      @@session
+      @session ||= cluster.connect keyspace
+      @session
     end
 
     def self.statements
-      @@statements ||= {}
-      @@statements
+      @statements ||= {}
+      @statements
     end
 
     def self.table name = nil
-      @@table = name unless name.nil?
-      @@table
+      @table = name unless name.nil?
+      @table
     end
 
     def self.table!
