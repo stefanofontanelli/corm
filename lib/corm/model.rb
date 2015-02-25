@@ -14,6 +14,7 @@ module Corm
     end
 
     def self.cluster
+      @@cluster ||= nil
       @@cluster
     end
 
