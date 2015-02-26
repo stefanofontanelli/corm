@@ -9,13 +9,14 @@ module Corm
 
   class Model
 
+    @@cluster = nil
+
     def self.configure opts = {}
-      @cluster = Cassandra.cluster opts
+      @@cluster = Cassandra.cluster opts
     end
 
     def self.cluster
-      @cluster ||= nil
-      @cluster
+      @@cluster
     end
 
     def self.execute *args
@@ -79,8 +80,8 @@ module Corm
     end
 
     def self.fields
-      @fields ||= {}
-      @fields
+      class_variable_set :@@fields, {} unless class_variable_defined? :@@fields
+      class_variable_get :@@fields
     end
 
     def self.get relations
@@ -95,33 +96,33 @@ module Corm
     end
 
     def self.keyspace name = nil
-      @keyspace = name.to_s unless name.nil?
-      @keyspace
+      class_variable_set :@@keyspace, name.to_s unless name.nil?
+      class_variable_get :@@keyspace
     end
 
     def self.primary_key partition_key = nil, *cols
-      @primary_key = [Array(partition_key), cols] unless partition_key.nil?
-      @primary_key
+      class_variable_set :@@primary_key, [Array(partition_key), cols] unless partition_key.nil?
+      class_variable_get :@@primary_key
     end
 
     def self.properties *args
-      @properties ||= args
-      @properties
+      class_variable_set :@@properties, args unless class_variable_defined? :@@properties
+      class_variable_get :@@properties
     end
 
     def self.session
-      @session ||= cluster.connect keyspace
-      @session
+      class_variable_set :@@session, cluster.connect(keyspace) unless class_variable_defined? :@@session
+      class_variable_get :@@session
     end
 
     def self.statements
-      @statements ||= {}
-      @statements
+      class_variable_set :@@statements, {} unless class_variable_defined? :@@statements
+      class_variable_get :@@statements
     end
 
     def self.table name = nil
-      @table = name unless name.nil?
-      @table
+      class_variable_set :@@table, name unless name.nil?
+      class_variable_get :@@table
     end
 
     def self.table!
