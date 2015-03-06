@@ -30,7 +30,7 @@ module Corm
       primary_key name.to_s.downcase if pkey
       
       send(:define_method, name.to_s.downcase) do
-        type = self.class.fields[name.to_s.downcase]
+        type = self.class.fields[name.to_s.downcase].to_s
         value = record[name.to_s.downcase]
         if type == 'json'
           MultiJson.decode value
@@ -54,7 +54,7 @@ module Corm
       end
 
       send(:define_method, "#{name.to_s.downcase}=") do |value|
-        type = self.class.fields[name.to_s.downcase]
+        type = self.class.fields[name.to_s.downcase].to_s
         record[name.to_s.downcase] = if type == 'json'
           MultiJson.encode value
         elsif type.start_with?('list') && type['json']
