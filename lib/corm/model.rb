@@ -29,53 +29,69 @@ module Corm
       
       primary_key name.to_s.downcase if pkey
       
-      send(:define_method, name.to_s.downcase) do
-        type = self.class.fields[name.to_s.downcase].to_s
+      send :define_method, name.to_s.downcase do
+        type = self.class.fields[name.to_s.downcase].to_s.downcase
         value = record[name.to_s.downcase]
         if type == 'json'
-          MultiJson.decode value
+          value.nil? ? '' : MultiJson.decode(value)
         elsif type.start_with?('list') && type['json']
-          value.map{|s| MultiJson.decode s}
+          value.nil? ? [] : value.map{|s| MultiJson.decode s}
+        elsif type.start_with?('list')
+          value.nil? ? [] : value
         elsif type.start_with?('set') && type['json']
-          Set.new value.map{|s| MultiJson.decode s}
+          Set.new(value.nil? ? [] : value.map{|s| MultiJson.decode s})
+        elsif type.start_with?('set')
+          Set.new []
         elsif type.start_with?('map') && type['json']
-          value.inject({}) do |hash, (k, v)|
+          hash = {}
+          (value || {}).each do |k, v|
             k = MultiJson.decode k if type['json,'] || type['json ,']
             v = MultiJson.decode v if type[', json'] || type[',json']
-            hash.merge(k => v)
+            hash[k] = v
           end
+          hash
+        elsif type.start_with?('map')
+          {}
         else
           value
         end
       end
 
-      send(:define_method, '[]') do |field|
+      send :define_method, '[]' do |field|
         send field.to_s.downcase
       end
 
-      send(:define_method, "#{name.to_s.downcase}=") do |value|
-        type = self.class.fields[name.to_s.downcase].to_s
+      send :define_method, "#{name.to_s.downcase}=" do |value|
+        type = self.class.fields[name.to_s.downcase].to_s.downcase
         record[name.to_s.downcase] = if type == 'json'
-          MultiJson.encode value
+          value.to_s.empty? ? nil : MultiJson.encode(value)
         elsif type.start_with?('list') && type['json']
-          value.map{|s| MultiJson.encode s}
+          value.to_a.empty? ? [] : value.map{|s| MultiJson.encode s}
+        elsif type.start_with?('list')
+          value.nil? ? [] : value
         elsif type.start_with?('set') && type['json']
-          Set.new value.map{|s| MultiJson.encode s}
+          Set.new(value.nil? ? [] : value.map{|s| MultiJson.encode s})
+        elsif type.start_with?('set')
+          Set.new []
         elsif type.start_with?('map') && type['json']
-          value.inject({}) do |hash, (k, v)|
+          hash = {}
+          (value || {}).each do |k, v|
             k = MultiJson.encode k if type['json,'] || type['json ,']
             v = MultiJson.encode v if type[', json'] || type[',json']
-            hash.merge(k => v)
+            hash[k] = v
           end
+          hash
+        elsif type.start_with?('map')
+          {}
         else
           value
         end
       end
-
-      send(:define_method, '[]=') do |field, value|
+      
+      send :define_method, '[]=' do |field, value|
         send "#{field.to_s.downcase}=", value
       end
-
+      
       nil
     end
 
@@ -169,7 +185,7 @@ module Corm
       nil
     end
 
-    private
+    protected
 
       def execute *args
         self.class.execute *args
