@@ -12,7 +12,7 @@ class TestModel < Test::Unit::TestCase
     table     :corm_model_test
     # Not working yet in ruby-driver!
     # properties(
-    #   'bloom_filter_fp_chance = 0.01', 
+    #   'bloom_filter_fp_chance = 0.01',
     #   'caching = \'{"keys":"ALL", "rows_per_partition":"NONE"}\'',
     #   'comment = ""',
     #   "compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}",
@@ -41,7 +41,7 @@ class TestModel < Test::Unit::TestCase
 
   def setup
     @logger = Logger.new STDOUT
-    
+
     FakeModel.configure hosts: ['127.0.0.1'], logger: @logger
     FakeModel.cluster.connect.execute <<-KEYSPACE_CQL
       CREATE KEYSPACE #{FakeModel.keyspace}
@@ -85,15 +85,15 @@ class TestModel < Test::Unit::TestCase
       },
     }
   end
-  
+
   def teardown
     FakeModel.execute "DROP KEYSPACE #{FakeModel.keyspace};"
   end
 
   def test_model
-    
+
     model = FakeModel.new @data
-    
+
     assert_equal model.uuid_field, @data[:uuid_field]
     assert_equal model.text_field, @data[:text_field]
     assert_equal model.int_field, @data[:int_field]

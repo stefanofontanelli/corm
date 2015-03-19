@@ -20,15 +20,15 @@ module Corm
     end
 
     def self.execute *args
-      session.execute *args
+      session.execute(*args)
     end
 
     def self.field name, type, pkey = false
-      
+
       fields[name.to_s.downcase] = type.to_s.downcase
-      
+
       primary_key name.to_s.downcase if pkey
-      
+
       send :define_method, name.to_s.downcase do
         type = self.class.fields[name.to_s.downcase].to_s.downcase
         value = record[name.to_s.downcase]
@@ -87,11 +87,11 @@ module Corm
           value
         end
       end
-      
+
       send :define_method, '[]=' do |field, value|
         send "#{field.to_s.downcase}=", value
       end
-      
+
       nil
     end
 
