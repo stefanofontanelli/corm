@@ -83,6 +83,8 @@ module Corm
           hash
         elsif type.start_with?('map')
           value.nil? ? {} : value
+        elsif type == ('timestamp')
+          value.is_a?(Fixnum) ? Time.at(value) : value
         else
           value
         end

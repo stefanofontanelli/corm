@@ -136,4 +136,16 @@ class TestModel < Test::Unit::TestCase
 
   end
 
+  def test_timestamp_as_integer
+    now = Time.now
+    ts = now.to_i
+    model = FakeModel.new({timestamp_field: ts, uuid_field: 'myuuid'})
+    assert model.timestamp_field.is_a?(Time), "timestamp_field should be a Time, is a #{model.timestamp_field.class}"
+    model.save
+
+    model2 = FakeModel.get uuid_field: model.uuid_field
+    assert model2
+    assert_equal model2.timestamp_field.to_i, ts
+  end
+
 end
