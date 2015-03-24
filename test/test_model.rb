@@ -12,7 +12,7 @@ class TestModel < Test::Unit::TestCase
     table     :corm_model_test
     # Not working yet in ruby-driver!
     # properties(
-    #   'bloom_filter_fp_chance = 0.01', 
+    #   'bloom_filter_fp_chance = 0.01',
     #   'caching = \'{"keys":"ALL", "rows_per_partition":"NONE"}\'',
     #   'comment = ""',
     #   "compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}",
@@ -36,12 +36,13 @@ class TestModel < Test::Unit::TestCase
     field :list_field,      'list<JSON>'
     field :set_field,       'set<JSON>'
     field :map_field,       'map<JSON, JSON>'
+    field :map_text_field,  'map<TEXT, TEXT>'
 
   end
 
   def setup
     @logger = Logger.new STDOUT
-    
+
     FakeModel.configure hosts: ['127.0.0.1'], logger: @logger
     FakeModel.cluster.connect.execute <<-KEYSPACE_CQL
       CREATE KEYSPACE #{FakeModel.keyspace}
@@ -83,17 +84,21 @@ class TestModel < Test::Unit::TestCase
           "key2" => "value2"
         },
       },
+      map_text_field: {
+        "key" => "value",
+        "key2" => "value2"
+      }
     }
   end
-  
+
   def teardown
     FakeModel.execute "DROP KEYSPACE #{FakeModel.keyspace};"
   end
 
   def test_model
-    
+
     model = FakeModel.new @data
-    
+
     assert_equal model.uuid_field, @data[:uuid_field]
     assert_equal model.text_field, @data[:text_field]
     assert_equal model.int_field, @data[:int_field]
@@ -103,6 +108,7 @@ class TestModel < Test::Unit::TestCase
     assert_equal model.list_field, @data[:list_field]
     assert_equal model.set_field, @data[:set_field]
     assert_equal model.map_field, @data[:map_field]
+    assert_equal model.map_text_field, @data[:map_text_field]
 
     model.save
     model.save
@@ -121,6 +127,7 @@ class TestModel < Test::Unit::TestCase
     assert_equal model3.list_field, @data[:list_field]
     assert_equal model3.set_field, @data[:set_field]
     assert_equal model3.map_field, @data[:map_field]
+    assert_equal model3.map_text_field, @data[:map_text_field]
 
     model3.delete
 

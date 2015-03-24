@@ -20,15 +20,15 @@ module Corm
     end
 
     def self.execute *args
-      session.execute *args
+      session.execute(*args)
     end
 
     def self.field name, type, pkey = false
-      
+
       fields[name.to_s.downcase] = type.to_s.downcase
-      
+
       primary_key name.to_s.downcase if pkey
-      
+
       send :define_method, name.to_s.downcase do
         type = self.class.fields[name.to_s.downcase].to_s.downcase
         value = record[name.to_s.downcase]
@@ -51,7 +51,7 @@ module Corm
           end
           hash
         elsif type.start_with?('map')
-          {}
+          value.nil? ? {} : value
         else
           value
         end
@@ -82,16 +82,16 @@ module Corm
           end
           hash
         elsif type.start_with?('map')
-          {}
+          value.nil? ? {} : value
         else
           value
         end
       end
-      
+
       send :define_method, '[]=' do |field, value|
         send "#{field.to_s.downcase}=", value
       end
-      
+
       nil
     end
 
@@ -188,7 +188,7 @@ module Corm
     protected
 
       def execute *args
-        self.class.execute *args
+        self.class.execute(*args)
       end
 
       def keyspace
