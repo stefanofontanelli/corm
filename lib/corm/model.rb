@@ -188,7 +188,7 @@ module Corm
     protected
 
       def execute *args
-        self.class.execute *args
+        self.class.execute(*args)
       end
 
       def keyspace
