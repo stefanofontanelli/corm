@@ -36,6 +36,7 @@ class TestModel < Test::Unit::TestCase
     field :list_field,      'list<JSON>'
     field :set_field,       'set<JSON>'
     field :map_field,       'map<JSON, JSON>'
+    field :map_text_field,  'map<TEXT, TEXT>'
 
   end
 
@@ -83,6 +84,10 @@ class TestModel < Test::Unit::TestCase
           "key2" => "value2"
         },
       },
+      map_text_field: {
+        "key" => "value",
+        "key2" => "value2"
+      }
     }
   end
 
@@ -103,6 +108,7 @@ class TestModel < Test::Unit::TestCase
     assert_equal model.list_field, @data[:list_field]
     assert_equal model.set_field, @data[:set_field]
     assert_equal model.map_field, @data[:map_field]
+    assert_equal model.map_text_field, @data[:map_text_field]
 
     model.save
     model.save
@@ -121,6 +127,7 @@ class TestModel < Test::Unit::TestCase
     assert_equal model3.list_field, @data[:list_field]
     assert_equal model3.set_field, @data[:set_field]
     assert_equal model3.map_field, @data[:map_field]
+    assert_equal model3.map_text_field, @data[:map_text_field]
 
     model3.delete
 

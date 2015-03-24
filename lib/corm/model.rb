@@ -51,7 +51,7 @@ module Corm
           end
           hash
         elsif type.start_with?('map')
-          {}
+          value.nil? ? {} : value
         else
           value
         end
@@ -82,7 +82,7 @@ module Corm
           end
           hash
         elsif type.start_with?('map')
-          {}
+          value.nil? ? {} : value
         else
           value
         end
