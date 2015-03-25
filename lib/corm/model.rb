@@ -33,7 +33,7 @@ module Corm
         type = self.class.fields[name.to_s.downcase].to_s.downcase
         value = record[name.to_s.downcase]
         if type == 'json'
-          value.nil? ? '' : MultiJson.decode(value)
+          value.nil? ? nil : MultiJson.decode(value)
         elsif type.start_with?('list') && type['json']
           value.nil? ? [] : value.map{|s| MultiJson.decode s}
         elsif type.start_with?('list')
