@@ -118,6 +118,11 @@ module Corm
       class_variable_get :@@keyspace
     end
 
+    def self.keyspace!(replication = nil, durable_writes = true)
+      replication ||= "{'class': 'SimpleStrategy', 'replication_factor': '1'}"
+      execute "CREATE KEYSPACE #{keyspace} WITH replication = #{replication} AND durable_writes = #{durable_writes};"
+    end
+
     def self.primary_key partition_key = nil, *cols
       class_variable_set :@@primary_key, [Array(partition_key), cols] unless partition_key.nil?
       class_variable_get :@@primary_key
