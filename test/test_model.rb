@@ -44,14 +44,7 @@ class TestModel < Test::Unit::TestCase
     @logger = Logger.new STDOUT
 
     FakeModel.configure hosts: ['127.0.0.1'], logger: @logger
-    FakeModel.cluster.connect.execute <<-KEYSPACE_CQL
-      CREATE KEYSPACE #{FakeModel.keyspace}
-      WITH replication = {
-        'class': 'SimpleStrategy',
-        'replication_factor': 3
-      };
-    KEYSPACE_CQL
-
+    FakeModel.keyspace!
     FakeModel.table!
 
     @data = {
