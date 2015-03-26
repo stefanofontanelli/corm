@@ -120,7 +120,8 @@ module Corm
 
     def self.keyspace!(replication = nil, durable_writes = true)
       replication ||= "{'class': 'SimpleStrategy', 'replication_factor': '1'}"
-      execute "CREATE KEYSPACE #{keyspace} WITH replication = #{replication} AND durable_writes = #{durable_writes};"
+      statement = "CREATE KEYSPACE #{keyspace} WITH replication = #{replication} AND durable_writes = #{durable_writes};"
+      cluster.connect.execute statement
     end
 
     def self.primary_key partition_key = nil, *cols
