@@ -141,4 +141,32 @@ class TestModel < Test::Unit::TestCase
     assert_equal model2.timestamp_field.to_i, ts
   end
 
+  def test_if_not_exists
+    assert_raises Cassandra::Errors::AlreadyExistsError do
+      FakeModel.keyspace!
+    end
+    assert_raises Cassandra::Errors::AlreadyExistsError do
+      FakeModel.keyspace!(if_not_exists: false)
+    end
+    FakeModel.keyspace!(if_not_exists: true)
+
+    assert_raises Cassandra::Errors::AlreadyExistsError do
+      FakeModel.table!
+    end
+    assert_raises Cassandra::Errors::AlreadyExistsError do
+      FakeModel.table!(if_not_exists: false)
+    end
+    FakeModel.table!(if_not_exists: true)
+  end
+
+  def test_truncate
+    FakeModel.truncate!  # should not fail truncating an empty table
+    FakeModel.new(uuid_field: 'myuuid', text_field: "test").save
+    model2 = FakeModel.get(uuid_field: 'myuuid')
+    assert_not_nil model2
+    FakeModel.truncate!
+    model3 = FakeModel.get(uuid_field: 'myuuid')
+    assert_equal model3, nil
+  end
+
 end
