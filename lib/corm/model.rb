@@ -118,9 +118,11 @@ module Corm
       class_variable_get :@@keyspace
     end
 
-    def self.keyspace!(replication = nil, durable_writes = true)
-      replication ||= "{'class': 'SimpleStrategy', 'replication_factor': '1'}"
-      statement = "CREATE KEYSPACE #{keyspace} WITH replication = #{replication} AND durable_writes = #{durable_writes};"
+    def self.keyspace!(opts={})
+      replication = opts[:replication] || "{'class': 'SimpleStrategy', 'replication_factor': '1'}"
+      durable_writes = opts[:durable_writes].nil? ? true : opts[:durable_writes]
+      if_not_exists = !!opts[:if_not_exists] ? "IF NOT EXISTS" : ""
+      statement = "CREATE KEYSPACE #{if_not_exists} #{keyspace} WITH replication = #{replication} AND durable_writes = #{durable_writes};"
       cluster.connect.execute statement
     end
 
@@ -149,7 +151,8 @@ module Corm
       class_variable_get :@@table
     end
 
-    def self.table!
+    def self.table!(opts={})
+      if_not_exists = !!opts[:if_not_exists] ? "IF NOT EXISTS" : ""
       table_ = [keyspace, table].compact.join '.'
       pkey = []
       partition_key = primary_key[0].join(',')
@@ -157,9 +160,13 @@ module Corm
       pkey << primary_key[1].join(',') unless primary_key[1].to_a.empty?
       pkey = pkey.join ','
       fields_ = fields.to_a.map{ |args| args.join ' ' }.concat(["PRIMARY KEY (#{pkey})"]).join ', '
-      definition = "CREATE TABLE #{table_} (#{fields_})".downcase.gsub('json', 'text')
+      definition = "CREATE TABLE #{if_not_exists} #{table_} (#{fields_})".downcase.gsub('json', 'text')
       definition = properties.to_a.empty? ? "#{definition};" : "#{definition} WITH #{properties.to_a.join ' AND '};"
       execute definition
+    end
+
+    def self.truncate!
+      execute "TRUNCATE #{[keyspace, table].compact.join '.'};"
     end
 
     def initialize opts = {}
