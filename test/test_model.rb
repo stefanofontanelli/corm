@@ -169,4 +169,10 @@ class TestModel < Test::Unit::TestCase
     assert_equal model3, nil
   end
 
+  def test_count
+    FakeModel.new(uuid_field: 'myuuid', text_field: "test").save
+    FakeModel.new(uuid_field: 'myuuid2', text_field: "test").save
+    assert_equal 2, FakeModel.count
+  end
+
 end

@@ -102,6 +102,13 @@ module Corm
       class_variable_get :@@fields
     end
 
+    def self.count
+      if statements['count'].nil?
+        statements['count'] = session.prepare("SELECT COUNT(*) FROM #{[keyspace, table].compact.join '.'};")
+      end
+      execute(statements['count']).first['count'].to_i
+    end
+
     def self.get relations
       if statements['get'].nil?
         fields = primary_key.flatten.map{ |key| "#{key} = ?" }.join ' AND '
