@@ -84,7 +84,13 @@ module Corm
         elsif type.start_with?('map')
           value.nil? ? {} : value
         elsif type == ('timestamp')
-          value.is_a?(Fixnum) ? Time.at(value) : value
+          if value.is_a?(Fixnum)
+            Time.at(value)
+          elsif value.is_a?(String)
+            Time.parse(value)
+          else
+            value
+          end
         else
           value
         end

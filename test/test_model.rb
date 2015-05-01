@@ -145,6 +145,18 @@ class TestModel < Test::Unit::TestCase
     assert_equal model2.timestamp_field.to_i, ts
   end
 
+  def test_timestamp_as_string
+    now = Time.now
+    ts = now.to_s
+    model = FakeModel.new({timestamp_field: ts, uuid_field: 'myuuid'})
+    assert model.timestamp_field.is_a?(Time), "timestamp_field should be a Time, is a #{model.timestamp_field.class}"
+    model.save
+
+    model2 = FakeModel.get uuid_field: model.uuid_field
+    assert model2
+    assert_equal model2.timestamp_field.to_s, ts
+  end
+
   def test_if_not_exists
     assert_raises Cassandra::Errors::AlreadyExistsError do
       FakeModel.keyspace!
