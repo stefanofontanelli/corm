@@ -103,6 +103,20 @@ module Corm
       nil
     end
 
+    def to_h
+      Hash[fields.keys.collect {|k| [k, self.send(k.to_sym)]}]
+    end
+
+    def to_json
+      res = self.to_h
+      fields.each do |k, t|
+        if t.start_with?("set")
+          res[k] = res[k].to_a
+        end
+      end
+      MultiJson.encode(res)
+    end
+
     def self.fields
       class_variable_set :@@fields, {} unless class_variable_defined? :@@fields
       class_variable_get :@@fields

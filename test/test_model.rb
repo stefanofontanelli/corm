@@ -191,4 +191,26 @@ class TestModel < Test::Unit::TestCase
     assert_equal 2, FakeModel.count
   end
 
+  def test_to_h
+    model = FakeModel.new @data
+    expected = Hash[@data.keys.collect{|k| [k.to_s, @data[k]]}]
+    expected["set_text_field"] = expected["set_text_field"].to_set
+    assert_equal expected, model.to_h
+  end
+
+  def test_to_json
+    model = FakeModel.new @data
+
+    new_model = FakeModel.new(MultiJson.decode(model.to_json))
+    assert_equal(@data[:uuid_field], new_model.uuid_field)
+    assert_equal(@data[:text_field], new_model.text_field)
+    assert_equal(@data[:int_field], new_model.int_field)
+    assert_equal(@data[:double_field], new_model.double_field)
+    assert_equal(@data[:boolean_field], new_model.boolean_field)
+    assert_equal(@data[:timestamp_field].to_i, new_model.timestamp_field.to_i)
+    assert_equal(@data[:list_field], new_model.list_field)
+    assert_equal(@data[:set_field], new_model.set_field)
+    assert_equal(@data[:set_text_field].to_set, new_model.set_text_field)
+    assert_equal(@data[:map_text_field], new_model.map_text_field)
+  end
 end
