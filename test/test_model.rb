@@ -35,6 +35,7 @@ class TestModel < Test::Unit::TestCase
     field :timestamp_field, :timestamp
     field :list_field,      'list<JSON>'
     field :set_field,       'set<JSON>'
+    field :set_text_field,  'set<TEXT>'
     field :map_field,       'map<JSON, JSON>'
     field :map_text_field,  'map<TEXT, TEXT>'
 
@@ -70,6 +71,7 @@ class TestModel < Test::Unit::TestCase
           "key2" => "value2"
         },
       ]),
+      set_text_field: ["a","b","c"],
       map_field: {
         {
           "key" => "value"
@@ -99,7 +101,8 @@ class TestModel < Test::Unit::TestCase
     assert_equal model.boolean_field, @data[:boolean_field]
     assert_equal model.timestamp_field, @data[:timestamp_field]
     assert_equal model.list_field, @data[:list_field]
-    assert_equal model.set_field, @data[:set_field]
+    assert_equal model.set_field, @data[:set_field].to_set
+    assert_equal model.set_text_field, @data[:set_text_field].to_set
     assert_equal model.map_field, @data[:map_field]
     assert_equal model.map_text_field, @data[:map_text_field]
 
@@ -119,6 +122,7 @@ class TestModel < Test::Unit::TestCase
     assert_equal model3.timestamp_field.to_i, @data[:timestamp_field].to_i
     assert_equal model3.list_field, @data[:list_field]
     assert_equal model3.set_field, @data[:set_field]
+    assert_equal model3.set_text_field, @data[:set_text_field].to_set
     assert_equal model3.map_field, @data[:map_field]
     assert_equal model3.map_text_field, @data[:map_text_field]
 

@@ -41,7 +41,7 @@ module Corm
         elsif type.start_with?('set') && type['json']
           Set.new(value.nil? ? [] : value.map{|s| MultiJson.decode s})
         elsif type.start_with?('set')
-          Set.new []
+          Set.new(value.to_a)
         elsif type.start_with?('map') && type['json']
           hash = {}
           (value || {}).each do |k, v|
@@ -72,7 +72,7 @@ module Corm
         elsif type.start_with?('set') && type['json']
           Set.new(value.nil? ? [] : value.map{|s| MultiJson.encode s})
         elsif type.start_with?('set')
-          Set.new []
+          Set.new(value.to_a)
         elsif type.start_with?('map') && type['json']
           hash = {}
           (value || {}).each do |k, v|
