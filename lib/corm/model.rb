@@ -8,6 +8,7 @@ require 'set'
 module Corm
 
   class Model
+    include Enumerable
 
     @@cluster = nil
 
@@ -104,17 +105,23 @@ module Corm
     end
 
     def to_h
-      Hash[fields.keys.collect {|k| [k, self.send(k.to_sym)]}]
+      Hash[self.collect {|k, v| [k, v]}]
     end
+    alias_method :to_hash, :to_h
 
     def to_json
       res = self.to_h
       fields.each do |k, t|
         if t.start_with?("set")
-          res[k] = res[k].to_a
+          res[k.to_sym] = res[k.to_sym].to_a
         end
       end
       MultiJson.encode(res)
+    end
+
+    def each &block
+      return enum_for(:each) unless block_given?
+      fields.keys.each {|k| block.call([k.to_sym, self.send(k.to_sym)])}
     end
 
     def self.fields

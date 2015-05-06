@@ -193,9 +193,8 @@ class TestModel < Test::Unit::TestCase
 
   def test_to_h
     model = FakeModel.new @data
-    expected = Hash[@data.keys.collect{|k| [k.to_s, @data[k]]}]
-    expected["set_text_field"] = expected["set_text_field"].to_set
-    assert_equal expected, model.to_h
+    @data[:set_text_field] = @data[:set_text_field].to_set
+    assert_equal @data, model.to_h
   end
 
   def test_to_json
@@ -212,5 +211,17 @@ class TestModel < Test::Unit::TestCase
     assert_equal(@data[:set_field], new_model.set_field)
     assert_equal(@data[:set_text_field].to_set, new_model.set_text_field)
     assert_equal(@data[:map_text_field], new_model.map_text_field)
+  end
+
+  def test_each
+    model = FakeModel.new @data
+    @data[:set_text_field] = @data[:set_text_field].to_set
+    assert(model.is_a?(Enumerable))
+    assert(model.each.is_a?(Enumerator))
+    model.each do |k, v|
+      assert_equal(v, @data[k.to_sym])
+    end
+
+    assert_equal(model.map{|k, v| k}, @data.map{|k, v| k})
   end
 end
