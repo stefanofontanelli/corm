@@ -8,14 +8,14 @@ module Corm
   class Model
     include Enumerable
 
-    @cluster = nil
+    @@cluster = nil
 
     def self.configure(opts = {})
-      @cluster = Cassandra.cluster(opts)
+      @@cluster = Cassandra.cluster(opts)
     end
 
     def self.cluster
-      @cluster
+      @@cluster
     end
 
     def self.execute(*args)
