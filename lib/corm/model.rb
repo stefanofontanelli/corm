@@ -246,15 +246,18 @@ module Corm
       @record ||= {}
     end
 
-    def save
-      if statements['save'].nil?
-        values = fields.keys.map { '?' }.join(',')
-        statement = "INSERT INTO #{keyspace}.#{table} (#{fields.keys.join ','}) VALUES (#{values});"
-        statements['save'] = session.prepare(statement)
-      end
+    def save(exclude_nil_values = false, use_raw_values = false)
+      keys = fields.keys.map do |k|
+        value = use_raw_values ? (opts[k.to_s] || opts[k.to_sym]) : record[k]
+        exclude_nil_values && value.nil? ? nil : k
+      end.compact
       execute(
-        statements['save'],
-        arguments: fields.keys.map { |k| record[k] }
+        session.prepare(
+          "INSERT INTO #{keyspace}.#{table} (#{keys.join(',')}) VALUES (#{keys.map { '?' }.join(',')});"
+        ),
+        arguments: keys.map do |k|
+          use_raw_values ? (opts[k.to_s] || opts[k.to_sym]) : record[k]
+        end
       )
       nil
     end
