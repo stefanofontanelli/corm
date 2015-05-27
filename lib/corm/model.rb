@@ -252,6 +252,7 @@ module Corm
         v = !exclude_nil_values || @raw_values.empty? ? record[k] : @raw_values[k]
         exclude_nil_values && v.nil? ? nil : k
       end.compact
+      return nil if keys.empty?
       execute(
         session.prepare(
           "INSERT INTO #{keyspace}.#{table} (#{keys.join(',')}) VALUES (#{keys.map { '?' }.join(',')});"
