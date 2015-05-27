@@ -256,10 +256,7 @@ module Corm
         session.prepare(
           "INSERT INTO #{keyspace}.#{table} (#{keys.join(',')}) VALUES (#{keys.map { '?' }.join(',')});"
         ),
-        arguments: keys.map do |k|
-          raw_value = @raw_values[k.to_s] || @raw_values[k.to_sym]
-          !exclude_nil_values || @raw_values.empty? ? record[k] : raw_value
-        end
+        arguments: keys.map { |k| record[k] }
       )
       nil
     end
