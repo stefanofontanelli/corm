@@ -84,6 +84,20 @@ class TestModel < Test::Unit::TestCase
         "key2" => "value2"
       }
     }
+
+    @data_with_nils = {
+      uuid_field: 'myuuid',
+      text_field: nil,
+      int_field: nil,
+      double_field: nil,
+      boolean_field: nil,
+      timestamp_field: nil,
+      list_field: nil,
+      set_field: nil,
+      set_text_field: nil,
+      map_field: nil,
+      map_text_field: nil
+    }
   end
 
   def teardown
@@ -221,7 +235,21 @@ class TestModel < Test::Unit::TestCase
     model.each do |k, v|
       assert_equal(v, @data[k.to_sym])
     end
+    assert_equal(model.map { |k, _| k }, @data.map { |k, _| k })
+  end
 
-    assert_equal(model.map{|k, v| k}, @data.map{|k, v| k})
+  def test_exclude_nils_values
+    model = FakeModel.new(@data)
+    model.save
+    model2 = FakeModel.new(@data_with_nils)
+    model2.save(true)
+    doc = FakeModel.execute(
+      "SELECT * FROM #{FakeModel.keyspace}.#{FakeModel.table}"
+    )
+    assert doc
+    assert_equal doc.to_a.count, 1
+    doc.first.each do |k, v|
+      assert v, "value in #{k} is nil"
+    end
   end
 end

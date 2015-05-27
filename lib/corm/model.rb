@@ -60,6 +60,7 @@ module Corm
 
       send :define_method, "#{name.to_s.downcase}=" do |value|
         type = fields[name.to_s.downcase].to_s.downcase
+        @raw_values[name.to_s.downcase] = value
         val = if type == 'json'
                 value.to_s.empty? ? nil : MultiJson.encode(value)
               elsif type.start_with?('list') && type['json']
@@ -225,7 +226,7 @@ module Corm
     def initialize(opts = {})
       @record = opts.delete(:_cassandra_record) ||
                 opts.delete('_cassandra_record')
-      @raw_values = opts
+      @raw_values = {}
       opts.each { |k, v| send("#{k}=", v) } if @record.nil?
     end
 
@@ -248,8 +249,7 @@ module Corm
 
     def save(exclude_nil_values = false)
       keys = fields.keys.map do |k|
-        raw_value = @raw_values[k.to_s] || @raw_values[k.to_sym]
-        v = !exclude_nil_values || @raw_values.empty? ? record[k] : raw_value
+        v = !exclude_nil_values || @raw_values.empty? ? record[k] : @raw_values[k]
         exclude_nil_values && v.nil? ? nil : k
       end.compact
       execute(
