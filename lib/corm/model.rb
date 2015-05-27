@@ -248,7 +248,7 @@ module Corm
 
     def save(exclude_nil_values = false, use_raw_values = false)
       keys = fields.keys.map do |k|
-        value = use_raw_values ? (opts[k.to_s] || opts[k.to_sym]) : record[k]
+        value = use_raw_values ? (@opts[k.to_s] || @opts[k.to_sym]) : record[k]
         exclude_nil_values && value.nil? ? nil : k
       end.compact
       execute(
@@ -256,7 +256,7 @@ module Corm
           "INSERT INTO #{keyspace}.#{table} (#{keys.join(',')}) VALUES (#{keys.map { '?' }.join(',')});"
         ),
         arguments: keys.map do |k|
-          use_raw_values ? (opts[k.to_s] || opts[k.to_sym]) : record[k]
+          use_raw_values ? (@opts[k.to_s] || @opts[k.to_sym]) : record[k]
         end
       )
       nil
