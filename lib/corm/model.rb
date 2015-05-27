@@ -225,7 +225,7 @@ module Corm
     def initialize(opts = {})
       @record = opts.delete(:_cassandra_record) ||
                 opts.delete('_cassandra_record')
-      @opts = opts
+      @raw_values = opts
       opts.each { |k, v| send("#{k}=", v) } if @record.nil?
     end
 
@@ -246,17 +246,19 @@ module Corm
       @record ||= {}
     end
 
-    def save(exclude_nil_values = false, use_raw_values = false)
+    def save(exclude_nil_values = false)
       keys = fields.keys.map do |k|
-        value = use_raw_values ? (@opts[k.to_s] || @opts[k.to_sym]) : record[k]
-        exclude_nil_values && value.nil? ? nil : k
+        raw_value = @raw_values[k.to_s] || @raw_values[k.to_sym]
+        v = !exclude_nil_values || @raw_values.empty? ? record[k] : raw_value
+        exclude_nil_values && v.nil? ? nil : k
       end.compact
       execute(
         session.prepare(
           "INSERT INTO #{keyspace}.#{table} (#{keys.join(',')}) VALUES (#{keys.map { '?' }.join(',')});"
         ),
         arguments: keys.map do |k|
-          use_raw_values ? (@opts[k.to_s] || @opts[k.to_sym]) : record[k]
+          raw_value = @raw_values[k.to_s] || @raw_values[k.to_sym]
+          !exclude_nil_values || @raw_values.empty? ? record[k] : raw_value
         end
       )
       nil
