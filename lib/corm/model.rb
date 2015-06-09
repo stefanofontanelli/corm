@@ -4,6 +4,7 @@ require 'cassandra'
 require 'corm/exceptions'
 require 'multi_json'
 require 'set'
+require 'digest/md5'
 
 module Corm
   class Model
@@ -160,10 +161,11 @@ module Corm
     #
     # If the keys passed as parameter are more than the defined by the table the
     # query is not valid, it cannot be executed and an error is raised.
-    def self.find(*key_values)#, &block)
+    def self.find(*key_values, &block)
       return to_enum(:find, *key_values) unless block_given?
 
-      if statements['find'].nil?
+      find_key = "find_#{Digest::MD5.hexdigest(key_values.inspect)}"
+      if statements[find_key].nil?
         fields = []
 
         if key_values.empty?
@@ -179,10 +181,10 @@ module Corm
           statement = "SELECT * FROM #{keyspace}.#{table} WHERE #{fields.join(' AND ')} ;"
         end
 
-        statements['find'] = session.prepare(statement)
+        statements[find_key] = session.prepare(statement)
       end
 
-      execute(statements['find'], arguments: key_values).each do |cassandra_record_|
+      execute(statements[find_key], arguments: key_values).each do |cassandra_record_|
         yield new(_cassandra_record: cassandra_record_)
       end
     end
