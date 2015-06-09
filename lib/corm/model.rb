@@ -1,6 +1,7 @@
 # encoding: utf-8
 
 require 'cassandra'
+require 'corm/exceptions'
 require 'multi_json'
 require 'set'
 
