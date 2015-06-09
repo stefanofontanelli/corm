@@ -2,106 +2,17 @@ require 'cassandra/uuid'
 require 'corm'
 require 'logger'
 require 'test/unit'
-
+require 'test_utils'
 
 class TestModel < Test::Unit::TestCase
-
-  class FakeModel < Corm::Model
-
-    keyspace  :corm_test
-    table     :corm_model_test
-    # Not working yet in ruby-driver!
-    # properties(
-    #   'bloom_filter_fp_chance = 0.01',
-    #   'caching = \'{"keys":"ALL", "rows_per_partition":"NONE"}\'',
-    #   'comment = ""',
-    #   "compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}",
-    #   "compression = {'sstable_compression': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
-    #   'dclocal_read_repair_chance = 0.1',
-    #   'default_time_to_live = 0',
-    #   'gc_grace_seconds = 864000',
-    #   'max_index_interval = 2048',
-    #   'memtable_flush_period_in_ms = 0',
-    #   'min_index_interval = 128',
-    #   'read_repair_chance = 0.0',
-    #   'speculative_retry = "99.0PERCENTILE"'
-    # )
-
-    field :uuid_field,      :text,      true
-    field :text_field,      :text
-    field :int_field,       :int
-    field :double_field,    :double
-    field :boolean_field,   :boolean
-    field :timestamp_field, :timestamp
-    field :list_field,      'list<JSON>'
-    field :set_field,       'set<JSON>'
-    field :set_text_field,  'set<TEXT>'
-    field :map_field,       'map<JSON, JSON>'
-    field :map_text_field,  'map<TEXT, TEXT>'
-
-  end
+  include TestUtils
 
   def setup
-    @logger = Logger.new STDOUT
-
-    FakeModel.configure hosts: ['127.0.0.1'], logger: @logger
-    FakeModel.keyspace!
-    FakeModel.table!
-
-    @data = {
-      uuid_field: 'myuuid',
-      text_field: 'mytext',
-      int_field: 33,
-      double_field: 1.0,
-      boolean_field: true,
-      timestamp_field: Time.now,
-      list_field: [
-        {
-          "key" => "value"
-        },
-        {
-          "key2" => "value2"
-        },
-      ],
-      set_field: Set.new([
-        {
-          "key" => "value"
-        },
-        {
-          "key2" => "value2"
-        },
-      ]),
-      set_text_field: ["a","b","c"],
-      map_field: {
-        {
-          "key" => "value"
-        } => {
-          "key2" => "value2"
-        },
-      },
-      map_text_field: {
-        "key" => "value",
-        "key2" => "value2"
-      }
-    }
-
-    @data_with_nils = {
-      uuid_field: 'myuuid',
-      text_field: nil,
-      int_field: nil,
-      double_field: nil,
-      boolean_field: nil,
-      timestamp_field: nil,
-      list_field: nil,
-      set_field: nil,
-      set_text_field: nil,
-      map_field: nil,
-      map_text_field: nil
-    }
+    setup_corm!
   end
 
   def teardown
-    FakeModel.execute "DROP KEYSPACE #{FakeModel.keyspace};"
+    teardown_corm!
   end
 
   def test_model
@@ -250,6 +161,79 @@ class TestModel < Test::Unit::TestCase
     assert_equal doc.to_a.count, 1
     doc.first.each do |k, v|
       assert v, "value in #{k} is nil"
+    end
+  end
+
+  def test_find_count
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    assert_equal(4, FakeMultiKeyModel.find().count)
+  end
+
+  def test_find_with_block
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    another_uuid_fields = []
+    FakeMultiKeyModel.find() do |m|
+      another_uuid_fields << m[:another_uuid_field]
+    end
+
+    assert_equal(@some_random_keys.sort, another_uuid_fields.sort)
+    assert_equal(@some_random_keys.count, another_uuid_fields.count)
+  end
+
+  def test_find_with_all_required_keys
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    found_model_enumerator = FakeMultiKeyModel.find(
+      @data[:uuid_field], # partition_key
+      @some_random_keys.sort.first # clustering_key
+    )
+
+    assert_equal(1, found_model_enumerator.count)
+
+    found_model = found_model_enumerator.next
+    assert_equal(@data[:uuid_field], found_model[:uuid_field])
+    assert_equal(@some_random_keys.sort.first, found_model[:another_uuid_field])
+  end
+
+  def test_find_by_partition_key
+    found_model_enumerator = FakeMultiKeyModel.find(
+      @data[:uuid_field] # partition_key
+    )
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    found_model_enumerator = FakeMultiKeyModel.find(
+      @data[:uuid_field] # partition_key
+    )
+    assert_equal(4, found_model_enumerator.count)
+  end
+
+  def test_find_too_many_keys
+    found_model_enumerator = FakeMultiKeyModel.find()
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    assert_raises Corm::TooManyKeysError do
+      FakeMultiKeyModel.find(:a, :b, :c, :d).next
     end
   end
 end
