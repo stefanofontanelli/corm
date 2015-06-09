@@ -143,6 +143,50 @@ module Corm
       execute("DROP TABLE #{[keyspace, table].compact.join '.'};")
     end
 
+    ##
+    # Find by keys.
+    # This `find` methods wants to be as flexible as possible.
+    #
+    # Unless a block is given, it returns an `Enumerator`, otherwise it yields
+    # to the block an instance of the found Cassandra entries.
+    #
+    # If no keys as passed as parameter, the methods returns (an Enumerator for)
+    # all the results in the table.
+    #
+    # If one or more keys are given, the **order matters**; since this methods
+    # will craft a CSQL query, the first key **must** be the `partition key`,
+    # while the followings are intended as the `clustering keys`... that can be
+    # more than one.
+    #
+    # If the keys passed as parameter are more than the defined by the table the
+    # query is not valid, it cannot be executed and an error is raised.
+    def self.find(*key_values)#, &block)
+      return to_enum(:find, *key_values) unless block_given?
+
+      if statements['find'].nil?
+        fields = []
+
+        if key_values.empty?
+          statement = "SELECT * FROM #{keyspace}.#{table} ;"
+        elsif key_values.count > primary_key.flatten.count
+          raise Corm::TooManyKeysError
+        else
+
+          key_values.each_with_index do |value, index|
+            fields << "#{primary_key.flatten[index]} = ?"
+          end
+
+          statement = "SELECT * FROM #{keyspace}.#{table} WHERE #{fields.join(' AND ')} ;"
+        end
+
+        statements['find'] = session.prepare(statement)
+      end
+
+      execute(statements['find'], arguments: key_values).each do |cassandra_record_|
+        yield new(_cassandra_record: cassandra_record_)
+      end
+    end
+
     def self.get(relations)
       if statements['get'].nil?
         fields = primary_key.flatten.map { |key| "#{key} = ?" }.join ' AND '
