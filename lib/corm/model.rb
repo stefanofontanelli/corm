@@ -164,27 +164,19 @@ module Corm
     def self.find(*key_values, &block)
       return to_enum(:find, *key_values) unless block_given?
 
-      find_key = "find_#{Digest::MD5.hexdigest(key_values.inspect)}"
-      if statements[find_key].nil?
-        fields = []
-
-        if key_values.empty?
-          statement = "SELECT * FROM #{keyspace}.#{table} ;"
-        elsif key_values.count > primary_key.flatten.count
-          raise Corm::TooManyKeysError
-        else
-
-          key_values.each_with_index do |value, index|
-            fields << "#{primary_key.flatten[index]} = ?"
-          end
-
-          statement = "SELECT * FROM #{keyspace}.#{table} WHERE #{fields.join(' AND ')} ;"
-        end
-
-        statements[find_key] = session.prepare(statement)
+      field_names = []
+      Array(key_values).each_with_index do |value, index|
+        field_names << "#{primary_key.flatten[index]} = ?"
       end
 
-      execute(statements[find_key], arguments: key_values).each do |cassandra_record_|
+      statement_find_key = "find_#{Digest::MD5.hexdigest(field_names.inspect)}"
+
+      if statements[statement_find_key].nil?
+        statement = self.the_find_statement_for(key_values, field_names)
+        statements[statement_find_key] = session.prepare(statement)
+      end
+
+      execute(statements[statement_find_key], arguments: key_values).each do |cassandra_record_|
         block.call(new(_cassandra_record: cassandra_record_))
       end
     end
@@ -341,6 +333,22 @@ module Corm
 
     def table
       self.class.table
+    end
+
+    ##
+    # Create and return the proper query to find the C* entries, given an array
+    # of keys.
+    #
+    # @param key_values An array of key names; can be empty, cannot be, in size, greater than the length of the model keys.
+    # @param field_names The "column names" for the `WHERE` clause.
+    def self.the_find_statement_for(key_values, field_names)
+      if key_values.empty?
+        return "SELECT * FROM #{keyspace}.#{table} ;"
+      elsif key_values.count > primary_key.flatten.count
+        raise Corm::TooManyKeysError
+      else
+        return "SELECT * FROM #{keyspace}.#{table} WHERE #{field_names.join(' AND ')} ;"
+      end
     end
   end
 end
