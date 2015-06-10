@@ -124,9 +124,12 @@ module TestUtils
   def teardown_corm!
     MODELS.each do |model_class|
       tablename = [ model_class.keyspace, model_class.table ].compact.join('.')
-      model_class.cluster.connect.execute("TRUNCATE #{tablename};") rescue nil
-      model_class.cluster.connect.execute("DROP TABLE IF EXISTS #{tablename};")
-      model_class.cluster.connect.execute("DROP KEYSPACE IF EXISTS #{model_class.keyspace};")
+      model_class.cluster.connect.tap do |connection|
+        connection.execute("TRUNCATE #{tablename};") rescue nil
+        connection.execute("DROP TABLE IF EXISTS #{tablename};")
+        connection.execute("DROP KEYSPACE IF EXISTS #{model_class.keyspace};")
+        connection.close
+      end
     end
   end
 end
