@@ -185,7 +185,7 @@ module Corm
       end
 
       execute(statements[find_key], arguments: key_values).each do |cassandra_record_|
-        yield new(_cassandra_record: cassandra_record_)
+        block.call(new(_cassandra_record: cassandra_record_))
       end
     end
 
