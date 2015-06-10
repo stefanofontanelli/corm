@@ -122,14 +122,9 @@ module TestUtils
   end
 
   def teardown_corm!
-    MODELS.each do |model_class|
-      tablename = [ model_class.keyspace, model_class.table ].compact.join('.')
-      model_class.cluster.connect.tap do |connection|
-        connection.execute("TRUNCATE #{tablename};") rescue nil
-        connection.execute("DROP TABLE IF EXISTS #{tablename};")
-        connection.execute("DROP KEYSPACE IF EXISTS #{model_class.keyspace};")
-        connection.close
-      end
+    MODELS.each do |model|
+      model.truncate! rescue nil # there is no "IF EXISTS" option in CSQL
+      model.drop_table!
     end
   end
 end
