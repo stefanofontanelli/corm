@@ -262,6 +262,10 @@ module Corm
       execute(definition)
     end
 
+    def self.drop_table!
+      execute("DROP TABLE IF EXISTS #{[keyspace, table].compact.join('.')};")
+    end
+
     def self.truncate!
       execute("TRUNCATE #{[keyspace, table].compact.join '.'};")
     end
