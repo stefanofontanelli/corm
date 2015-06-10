@@ -110,6 +110,19 @@ class TestModel < Test::Unit::TestCase
     assert_equal model3, nil
   end
 
+  def test_drop_table
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+    assert_equal(4, FakeMultiKeyModel.find().count)
+
+    FakeMultiKeyModel.drop_table!
+
+    table_names_after_drop = FakeModel.cluster.keyspace('corm_test').tables.map(&:name).map(&:to_sym)
+    assert_equal([FakeModel.table], table_names_after_drop)
+  end
+
   def test_count
     FakeModel.new(uuid_field: 'myuuid', text_field: "test").save
     FakeModel.new(uuid_field: 'myuuid2', text_field: "test").save
