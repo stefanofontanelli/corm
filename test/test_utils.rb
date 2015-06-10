@@ -59,7 +59,7 @@ module TestUtils
   MODELS = [FakeModel, FakeMultiKeyModel]
 
   def setup_corm!
-    @logger = Logger.new STDOUT
+    @logger = Logger.new(STDOUT).tap { |logger| logger.level = Logger::INFO }
 
     MODELS.each do |model|
       model.configure(hosts: ['127.0.0.1'], logger: @logger)
