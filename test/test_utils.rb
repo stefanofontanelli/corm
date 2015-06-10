@@ -63,7 +63,7 @@ module TestUtils
 
     MODELS.each do |model|
       model.configure(hosts: ['127.0.0.1'], logger: @logger)
-      model.keyspace! rescue nil
+      model.keyspace!(if_not_exists: true)
       model.table!(if_not_exists: true)
     end
 
