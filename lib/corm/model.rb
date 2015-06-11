@@ -138,6 +138,10 @@ module Corm
       execute(statements['count']).first['count'].to_i
     end
 
+    def self.drop!
+      execute("DROP TABLE #{[keyspace, table].compact.join '.'};")
+    end
+
     def self.get(relations)
       if statements['get'].nil?
         fields = primary_key.flatten.map { |key| "#{key} = ?" }.join ' AND '
