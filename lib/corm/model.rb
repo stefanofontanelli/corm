@@ -164,12 +164,14 @@ module Corm
     def self.find(*key_values, &block)
       return to_enum(:find, *key_values) unless block_given?
 
+      statement_find_key = ["find"]
       field_names = []
       Array(key_values).each_with_index do |value, index|
+        statement_find_key << primary_key.flatten[index].to_s
         field_names << "#{primary_key.flatten[index]} = ?"
       end
 
-      statement_find_key = "find_#{Digest::MD5.hexdigest(field_names.inspect)}"
+      statement_find_key = statement_find_key.join('_')
 
       if statements[statement_find_key].nil?
         statement = self.the_find_statement_for(key_values, field_names)
