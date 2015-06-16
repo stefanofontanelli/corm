@@ -219,6 +219,18 @@ module Corm
       class_variable_get(:@@primary_key)
     end
 
+    def self.primary_key_count
+      self.primary_key.flatten.count
+    end
+
+    def self.partition_key
+      self.primary_key.first.map(&:to_sym)
+    end
+
+    def self.clustering_key
+      self.primary_key.count == 2 ? self.primary_key[1].flatten.map(&:to_sym) : []
+    end
+
     def self.properties(*args)
       class_variable_set(
         :@@properties,
