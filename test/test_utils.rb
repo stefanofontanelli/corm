@@ -4,7 +4,7 @@ module TestUtils
   class FakeModel < Corm::Model
 
     keyspace  :corm_test
-    table     :corm_model_test
+    table     :corm_model_tests
     # Not working yet in ruby-driver!
     # properties(
     #   'bloom_filter_fp_chance = 0.01',
@@ -38,7 +38,7 @@ module TestUtils
   class FakeMultiKeyModel < Corm::Model
 
     keyspace  :corm_test
-    table     :corm_multi_key_model_test
+    table     :corm_multi_key_model_tests
 
     field :uuid_field,          :text
     field :another_uuid_field,  :text
@@ -56,10 +56,32 @@ module TestUtils
     primary_key [:uuid_field], :another_uuid_field
   end
 
-  MODELS = [FakeModel, FakeMultiKeyModel]
+  class FakeMultiMultiKeyModel < Corm::Model
+
+    keyspace  :corm_test
+    table     :corm_multi_multi_key_model_tests
+
+    field :uuid_field,          :text
+    field :another_uuid_field,  :text
+    field :still_another_uuid_field,  :text
+    field :text_field,          :text
+    field :int_field,           :int
+    field :double_field,        :double
+    field :boolean_field,       :boolean
+    field :timestamp_field,     :timestamp
+    field :list_field,          'list<JSON>'
+    field :set_field,           'set<JSON>'
+    field :set_text_field,      'set<TEXT>'
+    field :map_field,           'map<JSON, JSON>'
+    field :map_text_field,      'map<TEXT, TEXT>'
+
+    primary_key [:uuid_field], [:another_uuid_field, :still_another_uuid_field]
+  end
+
+  MODELS = [FakeModel, FakeMultiKeyModel, FakeMultiMultiKeyModel]
 
   def setup_corm!
-    @logger = Logger.new(STDOUT).tap { |logger| logger.level = Logger::INFO }
+    @logger = Logger.new(STDOUT).tap { |logger| logger.level = Logger::WARN }
 
     MODELS.each do |model|
       model.configure(hosts: ['127.0.0.1'], logger: @logger)
@@ -123,8 +145,12 @@ module TestUtils
 
   def teardown_corm!
     MODELS.each do |model|
-      model.truncate! rescue nil # there is no "IF EXISTS" option in CSQL
-      model.drop_table!
+      tablename = [ model.keyspace, model.table ].compact.join('.')
+      model.cluster.connect.tap do |connection|
+        connection.execute("TRUNCATE #{tablename};") rescue nil
+        connection.execute("DROP TABLE IF EXISTS #{tablename};")
+        connection.close
+      end
     end
   end
 end

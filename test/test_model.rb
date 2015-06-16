@@ -111,6 +111,7 @@ class TestModel < Test::Unit::TestCase
   end
 
   def test_drop_table
+    skip
     @some_random_keys.each do |a_value|
       model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
       model.save
@@ -119,8 +120,13 @@ class TestModel < Test::Unit::TestCase
 
     FakeMultiKeyModel.drop_table!
 
-    table_names_after_drop = FakeModel.cluster.keyspace('corm_test').tables.map(&:name).map(&:to_sym)
-    assert_equal([FakeModel.table], table_names_after_drop)
+    table_names_after_drop = FakeModel
+      .cluster
+      .keyspace('corm_test')
+      .tables
+      .map(&:name)
+      .map(&:to_sym)
+    assert_equal([FakeModel.table, FakeMultiMultiKeyModel.table], table_names_after_drop)
   end
 
   def test_count
@@ -186,6 +192,17 @@ class TestModel < Test::Unit::TestCase
     assert_equal(4, FakeMultiKeyModel.find().count)
   end
 
+  def test_find_count_with_limit
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    assert_equal(2, FakeMultiKeyModel.find(
+      {},
+      { limit: 2 }).count)
+  end
+
   def test_find_with_block
     @some_random_keys.each do |a_value|
       model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
@@ -208,8 +225,8 @@ class TestModel < Test::Unit::TestCase
     end
 
     found_model_enumerator = FakeMultiKeyModel.find(
-      @data[:uuid_field], # partition_key
-      @some_random_keys.sort.first # clustering_key
+      uuid_field: @data[:uuid_field], # partition_key
+      another_uuid_field: @some_random_keys.sort.first # clustering_key
     )
 
     assert_equal(1, found_model_enumerator.count)
@@ -221,7 +238,10 @@ class TestModel < Test::Unit::TestCase
 
   def test_find_by_partition_key
     found_model_enumerator = FakeMultiKeyModel.find(
-      @data[:uuid_field] # partition_key
+      {
+        uuid_field: @data[:uuid_field] # partition_key
+        # empty clustering_key
+      }
     )
     assert_equal(0, found_model_enumerator.count)
 
@@ -231,9 +251,22 @@ class TestModel < Test::Unit::TestCase
     end
 
     found_model_enumerator = FakeMultiKeyModel.find(
-      @data[:uuid_field] # partition_key
+      { uuid_field: @data[:uuid_field] } # partition_key
     )
     assert_equal(4, found_model_enumerator.count)
+  end
+
+  def test_find_by_partition_key_with_limit
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    found_model_enumerator = FakeMultiKeyModel.find(
+      { uuid_field: @data[:uuid_field] },
+      { limit: 2 })
+
+    assert_equal(2, found_model_enumerator.count)
   end
 
   def test_find_too_many_keys
@@ -246,7 +279,88 @@ class TestModel < Test::Unit::TestCase
     end
 
     assert_raises Corm::TooManyKeysError do
-      FakeMultiKeyModel.find(:a, :b, :c, :d).next
+      FakeMultiKeyModel.find(
+        uuid_field: 0,
+        another_uuid_field: 1,
+        c: 2,
+        d: 3
+      ).next
+    end
+  end
+
+  def test_find_missing_partition_key
+    found_model_enumerator = FakeMultiKeyModel.find()
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    assert_raises Corm::MissingPartitionKey do
+      FakeMultiKeyModel.find(
+        { another_uuid_field: 1 }
+      ).next
+    end
+  end
+
+  def test_find_another_missing_partition_key_not_an_unknown_key
+    found_model_enumerator = FakeMultiKeyModel.find()
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    assert_raises Corm::MissingPartitionKey do
+      FakeMultiKeyModel.find(
+        { wtf_uuid_field: 1 }
+      ).next
+    end
+  end
+
+  def test_find_missing_clustering_key
+    found_model_enumerator = FakeMultiMultiKeyModel.find()
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiMultiKeyModel.new(@data.merge(
+        {
+          another_uuid_field: a_value,
+          still_another_uuid_field: a_value,
+        }))
+      model.save
+    end
+
+    assert_raises Corm::MissingClusteringKey do
+      FakeMultiMultiKeyModel.find({
+        uuid_field: 0,
+        # another_uuid_field: 1, # this key is required by the ORDER of clust_keys.
+        still_another_uuid_field: 2
+      }).next
+    end
+  end
+
+  def test_find_unknown_clustering_key
+    found_model_enumerator = FakeMultiMultiKeyModel.find()
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiMultiKeyModel.new(@data.merge(
+        {
+          another_uuid_field: a_value,
+          still_another_uuid_field: a_value,
+        }))
+      model.save
+    end
+
+    assert_raises Corm::UnknownClusteringKey do
+      FakeMultiMultiKeyModel.find(
+        uuid_field: 0,
+        another_uuid_field: 1,
+        wtf_uuid_field: 3,
+      ).next
     end
   end
 
@@ -259,7 +373,8 @@ class TestModel < Test::Unit::TestCase
       model.save
     end
 
-    found_model_enumerator = FakeMultiKeyModel.find("you_wont_find_me")
+    found_model_enumerator = FakeMultiKeyModel.find(
+      { uuid_field: "you_wont_find_me" })
 
     assert_equal(0, found_model_enumerator.count)
     assert_raise StopIteration do
@@ -278,7 +393,7 @@ class TestModel < Test::Unit::TestCase
     end
 
     assert_raise ArgumentError do
-      FakeMultiKeyModel.find(:you_wont_find_me).count
+      FakeMultiKeyModel.find({ uuid_field: :you_wont_find_me }).count
     end
     assert_raise ArgumentError do
       FakeMultiKeyModel.find(42).count
@@ -310,18 +425,20 @@ class TestModel < Test::Unit::TestCase
     assert_equal(6, found_model_enumerator.count)
 
     found_model_enumerator = FakeMultiKeyModel.find(
-      @data[:uuid_field] # partition_key
+      { uuid_field: @data[:uuid_field] } # partition_key
     )
     assert_equal(4, found_model_enumerator.count)
 
     found_model_enumerator = FakeMultiKeyModel.find(
-      a_different_partition_key[:uuid_field] # partition_key
+      { uuid_field: a_different_partition_key[:uuid_field] } # partition_key
     )
     assert_equal(2, found_model_enumerator.count)
 
     found_model_enumerator = FakeMultiKeyModel.find(
-      a_different_partition_key[:uuid_field], # partition_key
-      some_different_random_keys.sort.first # clustering_key
+      {
+        uuid_field: a_different_partition_key[:uuid_field], # partition_key
+        another_uuid_field: some_different_random_keys.sort.first # clustering_key
+      }
     )
     assert_equal(1, found_model_enumerator.count)
     the_one_found = found_model_enumerator.first
