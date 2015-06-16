@@ -2,6 +2,7 @@
 
 require 'cassandra'
 require 'corm/exceptions'
+require 'corm/validations'
 require 'multi_json'
 require 'set'
 require 'digest/md5'
@@ -9,6 +10,7 @@ require 'digest/md5'
 module Corm
   class Model
     include Enumerable
+    extend Validations
 
     @@cluster = nil
 
@@ -154,27 +156,43 @@ module Corm
     # If no keys as passed as parameter, the methods returns (an Enumerator for)
     # all the results in the table.
     #
-    # If one or more keys are given, the **order matters**; since this methods
-    # will craft a CSQL query, the first key **must** be the `partition key`,
-    # while the followings are intended as the `clustering keys`... that can be
-    # more than one.
+    # The options hash support the ':limit' option to append at the statement;
+    # the default is no limit.
+    #
+    # The 'key_values' parameter is an Hash where the keys are the "column
+    # names" and the values... are the values.
     #
     # If the keys passed as parameter are more than the defined by the table the
     # query is not valid, it cannot be executed and an error is raised.
-    def self.find(*key_values, &block)
-      return to_enum(:find, *key_values) unless block_given?
+    def self.find(key_values = {}, options = {}, &block)
 
-      statement_find_key = ["find"]
+      raise ArgumentError unless key_values.is_a? Hash
+      raise ArgumentError unless options.is_a? Hash
+
+      unless key_values.empty?
+        raise TooManyKeysError if there_are_too_many_keys_requested?(key_values)
+        raise MissingPartitionKey if a_partition_key_is_missing?(key_values)
+        raise UnknownClusteringKey if an_unknown_clustering_key_is_requested?(key_values)
+        # raise UnknownKey if an_unknown_key_is_requested?(key_values)
+        raise MissingClusteringKey if a_clustering_key_is_missing?(key_values)
+      end
+
+      return to_enum(:find, key_values, options) unless block_given?
+
+      statement_find_key = Array(options.fetch(:statement_key, "find")).flatten
       field_names = []
-      Array(key_values).each_with_index do |value, index|
-        statement_find_key << primary_key.flatten[index].to_s
-        field_names << "#{primary_key.flatten[index]} = ?"
+
+      key_values.each do |key, value|
+
+        statement_find_key << key.to_s
+        field_names << "#{key} = ?"
       end
 
       statement_find_key = statement_find_key.join('_')
+      statement_find_key.concat("_limit#{options[:limit]}") if options[:limit]
 
       if statements[statement_find_key].nil?
-        statement = self.the_find_statement_for(key_values, field_names)
+        statement = self.the_find_statement_for(key_values, field_names, options[:limit])
         statements[statement_find_key] = session.prepare(statement)
       end
 
@@ -359,13 +377,14 @@ module Corm
     #
     # @param key_values An array of key names; can be empty, cannot be, in size, greater than the length of the model keys.
     # @param field_names The "column names" for the `WHERE` clause.
-    def self.the_find_statement_for(key_values, field_names)
+    def self.the_find_statement_for(key_values, field_names, limit = nil)
+      limit = "LIMIT #{limit.to_i}" if (limit && limit > 0)
       if key_values.empty?
-        return "SELECT * FROM #{keyspace}.#{table} ;"
+        return "SELECT * FROM #{keyspace}.#{table} #{limit} ;"
       elsif key_values.count > primary_key.flatten.count
         raise Corm::TooManyKeysError
       else
-        return "SELECT * FROM #{keyspace}.#{table} WHERE #{field_names.join(' AND ')} ;"
+        return "SELECT * FROM #{keyspace}.#{table} WHERE #{field_names.join(' AND ')} #{limit} ;"
       end
     end
   end
