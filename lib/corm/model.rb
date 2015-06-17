@@ -376,7 +376,7 @@ module Corm
       limit = "LIMIT #{limit.to_i}" if (limit && limit > 0)
       if key_values.empty?
         return "SELECT * FROM #{keyspace}.#{table} #{limit} ;"
-      elsif key_values.count > primary_key.flatten.count
+      elsif key_values.count > self.primary_key_count
         raise Corm::TooManyKeysError
       else
         return "SELECT * FROM #{keyspace}.#{table} WHERE #{field_names.join(' AND ')} #{limit} ;"
