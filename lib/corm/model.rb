@@ -143,7 +143,7 @@ module Corm
     end
 
     def self.drop!
-      execute("DROP TABLE #{[keyspace, table].compact.join '.'};")
+      execute("DROP TABLE IF EXISTS #{[keyspace, table].compact.join('.')};")
     end
 
     ##
@@ -292,10 +292,6 @@ module Corm
       definition = "CREATE TABLE #{if_not_exists} #{table_} (#{fields_})".downcase.gsub('json', 'text')
       definition = properties.to_a.empty? ? "#{definition};" : "#{definition} WITH #{properties.to_a.join ' AND '};"
       execute(definition)
-    end
-
-    def self.drop_table!
-      execute("DROP TABLE IF EXISTS #{[keyspace, table].compact.join('.')};")
     end
 
     def self.truncate!
