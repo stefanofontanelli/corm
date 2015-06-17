@@ -205,16 +205,12 @@ module Corm
     end
 
     def self.get(relations)
-      if statements['get'].nil?
-        fields = primary_key.flatten.map { |key| "#{key} = ?" }.join ' AND '
-        statement = "SELECT * FROM #{keyspace}.#{table} WHERE #{fields} LIMIT 1;"
-        statements['get'] = session.prepare statement
-      end
-      values = primary_key.flatten.map do |key|
-        relations[key.to_s] || relations[key.to_sym]
-      end
-      cassandra_record_ = execute(statements['get'], arguments: values).first
-      cassandra_record_ ? new(_cassandra_record: cassandra_record_) : nil
+      query_options = {
+        limit: 1,
+        statement_key: 'get'
+      }
+      cassandra_record = self.find(relations, query_options).first
+      return cassandra_record ? cassandra_record : nil
     end
 
     def self.keyspace(name = nil)
