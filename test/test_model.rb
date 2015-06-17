@@ -111,6 +111,8 @@ class TestModel < Test::Unit::TestCase
   end
 
   def test_drop_table
+    # I'm skipping this test because the "DROP TABLE" apparently requires to
+    # be tested is isolation to see the assert immediately true.
     skip
     @some_random_keys.each do |a_value|
       model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
@@ -118,8 +120,8 @@ class TestModel < Test::Unit::TestCase
     end
     assert_equal(4, FakeMultiKeyModel.find().count)
 
-    FakeMultiKeyModel.drop_table!
-
+    FakeMultiKeyModel.drop!
+    sleep(1)
     table_names_after_drop = FakeModel
       .cluster
       .keyspace('corm_test')
