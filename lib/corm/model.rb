@@ -153,7 +153,7 @@ module Corm
     # Unless a block is given, it returns an `Enumerator`, otherwise it yields
     # to the block an instance of the found Cassandra entries.
     #
-    # If no keys as passed as parameter, the methods returns (an Enumerator for)
+    # If no keys is passed as parameter, the methods returns (an Enumerator for)
     # all the results in the table.
     #
     # The options hash support the ':limit' option to append at the statement;
@@ -164,10 +164,13 @@ module Corm
     #
     # If the keys passed as parameter are more than the defined by the table the
     # query is not valid, it cannot be executed and an error is raised.
-    def self.find(key_values = {}, options = {}, &block)
+    # Other exceptions are raised when the keys doesn't include all the
+    # (required) partition_keys or the clustering keys doesn't are in the
+    # defined order.
+    def self.find(key_values = {}, query_options = {}, &block)
 
-      raise ArgumentError unless key_values.is_a? Hash
-      raise ArgumentError unless options.is_a? Hash
+      raise ArgumentError unless key_values.is_a?(Hash)
+      raise ArgumentError unless query_options.is_a?(Hash)
 
       unless key_values.empty?
         raise TooManyKeysError if there_are_too_many_keys_requested?(key_values)
@@ -177,9 +180,9 @@ module Corm
         raise MissingClusteringKey if a_clustering_key_is_missing?(key_values)
       end
 
-      return to_enum(:find, key_values, options) unless block_given?
+      return to_enum(:find, key_values, query_options) unless block_given?
 
-      statement_find_key = Array(options.fetch(:statement_key, "find")).flatten
+      statement_find_key = Array(query_options.fetch(:statement_key, 'find')).flatten
       field_names = []
 
       key_values.each do |key, value|
@@ -189,10 +192,10 @@ module Corm
       end
 
       statement_find_key = statement_find_key.join('_')
-      statement_find_key.concat("_limit#{options[:limit]}") if options[:limit]
+      statement_find_key.concat("_limit#{query_options[:limit]}") if query_options[:limit]
 
       if statements[statement_find_key].nil?
-        statement = self.the_find_statement_for(key_values, field_names, options[:limit])
+        statement = self.the_select_statement_for(key_values, field_names, query_options[:limit])
         statements[statement_find_key] = session.prepare(statement)
       end
 
@@ -373,7 +376,7 @@ module Corm
     #
     # @param key_values An array of key names; can be empty, cannot be, in size, greater than the length of the model keys.
     # @param field_names The "column names" for the `WHERE` clause.
-    def self.the_find_statement_for(key_values, field_names, limit = nil)
+    def self.the_select_statement_for(key_values, field_names, limit = nil)
       limit = "LIMIT #{limit.to_i}" if (limit && limit > 0)
       if key_values.empty?
         return "SELECT * FROM #{keyspace}.#{table} #{limit} ;"
