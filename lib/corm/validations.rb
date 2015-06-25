@@ -26,7 +26,7 @@ module Corm
 
     def a_partition_key_is_missing?(key_values)
       self.partition_key.each do |part_key|
-        return "#{part_key} is required as partition key!" unless key_values.keys.include?(part_key.to_sym)
+        return "#{part_key} is required as partition key!" unless key_values.keys.map(&:to_sym).include?(part_key.to_sym)
       end
       false
     end
@@ -44,7 +44,7 @@ module Corm
       return false if self.clustering_key.empty?
       return false if no_clustering_key_requested?(key_values)
       self.clustering_key.each do |clust_key|
-        return "#{clust_key} is required as clustering key! (Order matters)" unless key_values.include?(clust_key.to_sym)
+        return "#{clust_key} is required as clustering key! (Order matters)" unless key_values.keys.map(&:to_sym).include?(clust_key.to_sym)
       end
       false
     end
