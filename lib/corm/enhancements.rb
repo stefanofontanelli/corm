@@ -43,8 +43,9 @@ module Corm
         begin
           return block.call() if block_given?
         rescue *RESCUED_CASSANDRA_EXCEPTIONS => e
-          enhancements_logger.error { "(#{i}/#{attempts} attempts) Bad fail! Retry in #{i*2} seconds to recover  #{e.class.name}: #{e.message}" }
-          sleep(i*2)
+          sleep_for = i * Integer((rand+1.5) * 100) / Float(100)
+          enhancements_logger.error { "(#{i}/#{attempts} attempts) Bad fail! Retry in #{sleep_for} seconds to recover  #{e.class.name}: #{e.message}" }
+          sleep(sleep_for)
         end
       end
       nil
