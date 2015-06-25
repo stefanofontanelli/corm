@@ -1,6 +1,7 @@
 # encoding: utf-8
 
 require 'cassandra'
+require 'corm/enhancements'
 require 'corm/exceptions'
 require 'corm/validations'
 require 'multi_json'
@@ -10,20 +11,33 @@ require 'digest/md5'
 module Corm
   class Model
     include Enumerable
+    extend Enhancements
     extend Validations
 
     @@cluster = nil
 
+    # Since the `Cassandra.cluster` method wants to connect, the configure will
+    # retry a couple of times (implemented in the Enhancements module) before
+    # give up...
+    # If it fails `@@cluster` was nil and nil remains.
     def self.configure(opts = {})
-      @@cluster = Cassandra.cluster(opts)
+      attempts_wrapper do
+        @@cluster = Cassandra.cluster(opts)
+      end
     end
 
     def self.cluster
       @@cluster
     end
 
+    # Please, note the wrapper around the `session execute`.
+    # This wrapper (implemented in the Enhancements module) will recover some
+    # Cassandra::Error(s) retrying a couple of times.
+    #
+    # Note also that the <instance>#execute is just calling this Class#execute,
+    # as well as count, find, get, drop, etc...
     def self.execute(*args)
-      session.execute(*args)
+      attempts_wrapper { session.execute(*args) }
     end
 
     def self.field(name, type, pkey = false)
@@ -218,14 +232,20 @@ module Corm
       class_variable_get(:@@keyspace)
     end
 
+    # Eventually set and return the session, taken from the connection to
+    # the cluster.
+    #
+    # This operation is wrapped by the retry policy (module Enhancements).
     def self.keyspace!(opts = {})
       replication = opts[:replication] ||
                     "{'class': 'SimpleStrategy', 'replication_factor': '1'}"
       durable_writes = opts[:durable_writes].nil? ? true : opts[:durable_writes]
       if_not_exists = opts[:if_not_exists] ? 'IF NOT EXISTS' : ''
-      cluster.connect.execute(
-        "CREATE KEYSPACE #{if_not_exists} #{keyspace} WITH replication = #{replication} AND durable_writes = #{durable_writes};"
-      )
+      attempts_wrapper do
+        cluster.connect.execute(
+          "CREATE KEYSPACE #{if_not_exists} #{keyspace} WITH replication = #{replication} AND durable_writes = #{durable_writes};"
+        )
+      end
     end
 
     def self.primary_key(partition_key = nil, *cols)
@@ -256,11 +276,19 @@ module Corm
       class_variable_get(:@@properties)
     end
 
+    # Eventually set and return the session, taken from the connection to
+    # the cluster.
+    #
+    # This operation is wrapped by the retry policy (module Enhancements).
     def self.session
-      class_variable_set(
-        :@@session,
-        cluster.connect(keyspace)
-      ) unless class_variable_defined?(:@@session)
+      unless class_variable_defined?(:@@session)
+        attempts_wrapper do
+          class_variable_set(
+            :@@session,
+            cluster.connect(keyspace)
+          )
+        end
+      end
       class_variable_get :@@session
     end
 
