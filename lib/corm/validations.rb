@@ -11,14 +11,14 @@ module Corm
     end
 
     def an_unknown_key_is_requested?(key_values)
-      unless (key_values.keys - self.primary_key.flatten).empty?
+      unless (key_values.keys.map(&:to_sym) - self.primary_key.flatten).empty?
         return "You requested a key that it's not in the table primary key!"
       end
       false
     end
 
     def an_unknown_clustering_key_is_requested?(key_values)
-      unless ((key_values.keys - self.partition_key.flatten) - self.clustering_key).empty?
+      unless ((key_values.keys.map(&:to_sym) - self.partition_key.flatten) - self.clustering_key).empty?
         return "You requested some unsupported clustering keys!"
       end
       false
@@ -50,7 +50,7 @@ module Corm
     end
 
     def no_clustering_key_requested?(key_values)
-      (key_values.keys - self.partition_key.flatten).empty?
+      (key_values.keys.map(&:to_sym) - self.partition_key.flatten).empty?
     end
   end
 end
