@@ -38,7 +38,7 @@ module Corm
     #
     # A possible and maybe-good refactoring could be refine for the
     # network related issues.
-    def attempts_wrapper(attempts = 2, &block)
+    def attempts_wrapper(attempts = 3, &block)
       (1..attempts).each do |i|
         begin
           return block.call() if block_given?
