@@ -2,106 +2,17 @@ require 'cassandra/uuid'
 require 'corm'
 require 'logger'
 require 'test/unit'
-
+require 'test_utils'
 
 class TestModel < Test::Unit::TestCase
-
-  class FakeModel < Corm::Model
-
-    keyspace  :corm_test
-    table     :corm_model_test
-    # Not working yet in ruby-driver!
-    # properties(
-    #   'bloom_filter_fp_chance = 0.01',
-    #   'caching = \'{"keys":"ALL", "rows_per_partition":"NONE"}\'',
-    #   'comment = ""',
-    #   "compaction = {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'}",
-    #   "compression = {'sstable_compression': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
-    #   'dclocal_read_repair_chance = 0.1',
-    #   'default_time_to_live = 0',
-    #   'gc_grace_seconds = 864000',
-    #   'max_index_interval = 2048',
-    #   'memtable_flush_period_in_ms = 0',
-    #   'min_index_interval = 128',
-    #   'read_repair_chance = 0.0',
-    #   'speculative_retry = "99.0PERCENTILE"'
-    # )
-
-    field :uuid_field,      :text,      true
-    field :text_field,      :text
-    field :int_field,       :int
-    field :double_field,    :double
-    field :boolean_field,   :boolean
-    field :timestamp_field, :timestamp
-    field :list_field,      'list<JSON>'
-    field :set_field,       'set<JSON>'
-    field :set_text_field,  'set<TEXT>'
-    field :map_field,       'map<JSON, JSON>'
-    field :map_text_field,  'map<TEXT, TEXT>'
-
-  end
+  include TestUtils
 
   def setup
-    @logger = Logger.new STDOUT
-
-    FakeModel.configure hosts: ['127.0.0.1'], logger: @logger
-    FakeModel.keyspace!
-    FakeModel.table!
-
-    @data = {
-      uuid_field: 'myuuid',
-      text_field: 'mytext',
-      int_field: 33,
-      double_field: 1.0,
-      boolean_field: true,
-      timestamp_field: Time.now,
-      list_field: [
-        {
-          "key" => "value"
-        },
-        {
-          "key2" => "value2"
-        },
-      ],
-      set_field: Set.new([
-        {
-          "key" => "value"
-        },
-        {
-          "key2" => "value2"
-        },
-      ]),
-      set_text_field: ["a","b","c"],
-      map_field: {
-        {
-          "key" => "value"
-        } => {
-          "key2" => "value2"
-        },
-      },
-      map_text_field: {
-        "key" => "value",
-        "key2" => "value2"
-      }
-    }
-
-    @data_with_nils = {
-      uuid_field: 'myuuid',
-      text_field: nil,
-      int_field: nil,
-      double_field: nil,
-      boolean_field: nil,
-      timestamp_field: nil,
-      list_field: nil,
-      set_field: nil,
-      set_text_field: nil,
-      map_field: nil,
-      map_text_field: nil
-    }
+    setup_corm!
   end
 
   def teardown
-    FakeModel.execute "DROP KEYSPACE #{FakeModel.keyspace};"
+    teardown_corm!
   end
 
   def test_model
@@ -199,6 +110,27 @@ class TestModel < Test::Unit::TestCase
     assert_equal model3, nil
   end
 
+  def test_drop_table
+    # I'm skipping this test because the "DROP TABLE" apparently requires to
+    # be tested is isolation to see the assert immediately true.
+    skip
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+    assert_equal(4, FakeMultiKeyModel.find().count)
+
+    FakeMultiKeyModel.drop!
+    sleep(1)
+    table_names_after_drop = FakeModel
+      .cluster
+      .keyspace('corm_test')
+      .tables
+      .map(&:name)
+      .map(&:to_sym)
+    assert_equal([FakeModel.table, FakeMultiMultiKeyModel.table], table_names_after_drop)
+  end
+
   def test_count
     FakeModel.new(uuid_field: 'myuuid', text_field: "test").save
     FakeModel.new(uuid_field: 'myuuid2', text_field: "test").save
@@ -251,5 +183,268 @@ class TestModel < Test::Unit::TestCase
     doc.first.each do |k, v|
       assert v, "value in #{k} is nil"
     end
+  end
+
+  def test_find_count
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    assert_equal(4, FakeMultiKeyModel.find().count)
+  end
+
+  def test_find_count_with_limit
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    assert_equal(2, FakeMultiKeyModel.find(
+      {},
+      { limit: 2 }).count)
+  end
+
+  def test_find_with_block
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    another_uuid_fields = []
+    FakeMultiKeyModel.find() do |m|
+      another_uuid_fields << m[:another_uuid_field]
+    end
+
+    assert_equal(@some_random_keys.sort, another_uuid_fields.sort)
+    assert_equal(@some_random_keys.count, another_uuid_fields.count)
+  end
+
+  def test_find_with_all_required_keys
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    found_model_enumerator = FakeMultiKeyModel.find(
+      uuid_field: @data[:uuid_field], # partition_key
+      another_uuid_field: @some_random_keys.sort.first # clustering_key
+    )
+
+    assert_equal(1, found_model_enumerator.count)
+
+    found_model = found_model_enumerator.next
+    assert_equal(@data[:uuid_field], found_model[:uuid_field])
+    assert_equal(@some_random_keys.sort.first, found_model[:another_uuid_field])
+  end
+
+  def test_find_by_partition_key
+    found_model_enumerator = FakeMultiKeyModel.find(
+      {
+        uuid_field: @data[:uuid_field] # partition_key
+        # empty clustering_key
+      }
+    )
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    found_model_enumerator = FakeMultiKeyModel.find(
+      { uuid_field: @data[:uuid_field] } # partition_key
+    )
+    assert_equal(4, found_model_enumerator.count)
+  end
+
+  def test_find_by_partition_key_with_limit
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    found_model_enumerator = FakeMultiKeyModel.find(
+      { uuid_field: @data[:uuid_field] },
+      { limit: 2 })
+
+    assert_equal(2, found_model_enumerator.count)
+  end
+
+  def test_find_too_many_keys
+    found_model_enumerator = FakeMultiKeyModel.find()
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    assert_raises Corm::TooManyKeysError do
+      FakeMultiKeyModel.find(
+        uuid_field: 0,
+        another_uuid_field: 1,
+        c: 2,
+        d: 3
+      ).next
+    end
+  end
+
+  def test_find_missing_partition_key
+    found_model_enumerator = FakeMultiKeyModel.find()
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    assert_raises Corm::MissingPartitionKey do
+      FakeMultiKeyModel.find(
+        { another_uuid_field: 1 }
+      ).next
+    end
+  end
+
+  def test_find_another_missing_partition_key_not_an_unknown_key
+    found_model_enumerator = FakeMultiKeyModel.find()
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    assert_raises Corm::MissingPartitionKey do
+      FakeMultiKeyModel.find(
+        { wtf_uuid_field: 1 }
+      ).next
+    end
+  end
+
+  def test_find_missing_clustering_key
+    found_model_enumerator = FakeMultiMultiKeyModel.find()
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiMultiKeyModel.new(@data.merge(
+        {
+          another_uuid_field: a_value,
+          still_another_uuid_field: a_value,
+        }))
+      model.save
+    end
+
+    assert_raises Corm::MissingClusteringKey do
+      FakeMultiMultiKeyModel.find({
+        uuid_field: 0,
+        # another_uuid_field: 1, # this key is required by the ORDER of clust_keys.
+        still_another_uuid_field: 2
+      }).next
+    end
+  end
+
+  def test_find_unknown_clustering_key
+    found_model_enumerator = FakeMultiMultiKeyModel.find()
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiMultiKeyModel.new(@data.merge(
+        {
+          another_uuid_field: a_value,
+          still_another_uuid_field: a_value,
+        }))
+      model.save
+    end
+
+    assert_raises Corm::UnknownClusteringKey do
+      FakeMultiMultiKeyModel.find(
+        uuid_field: 0,
+        another_uuid_field: 1,
+        wtf_uuid_field: 3,
+      ).next
+    end
+  end
+
+  def test_find_if_there_are_no_results
+    found_model_enumerator = FakeMultiKeyModel.find()
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    found_model_enumerator = FakeMultiKeyModel.find(
+      { uuid_field: "you_wont_find_me" })
+
+    assert_equal(0, found_model_enumerator.count)
+    assert_raise StopIteration do
+      found_model_enumerator.next
+    end
+    assert_equal([], found_model_enumerator.map{ |a| a })
+  end
+
+  def test_find_if_is_given_a_key_of_a_different_type
+    found_model_enumerator = FakeMultiKeyModel.find()
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    assert_raise ArgumentError do
+      FakeMultiKeyModel.find({ uuid_field: :you_wont_find_me }).count
+    end
+    assert_raise ArgumentError do
+      FakeMultiKeyModel.find(42).count
+    end
+  end
+
+  def test_find_when_there_are_more_partition_keys
+
+    # 4 entries for the uuid_field: 'myuuid'
+    @some_random_keys.each do |a_value|
+      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
+      model.save
+    end
+
+    # 2 entries for the uuid_field: 'not_my_uuuid'
+    some_different_random_keys = %w(zero one)
+    a_different_partition_key = { uuid_field: 'not_my_uuuid' }
+    some_different_random_keys.each do |other_clustering_keys|
+      model = FakeMultiKeyModel.new(
+        @data.merge(
+          { another_uuid_field: other_clustering_keys }
+        ).merge(
+          a_different_partition_key
+        ))
+      model.save
+    end
+
+    found_model_enumerator = FakeMultiKeyModel.find()
+    assert_equal(6, found_model_enumerator.count)
+
+    found_model_enumerator = FakeMultiKeyModel.find(
+      { uuid_field: @data[:uuid_field] } # partition_key
+    )
+    assert_equal(4, found_model_enumerator.count)
+
+    found_model_enumerator = FakeMultiKeyModel.find(
+      { uuid_field: a_different_partition_key[:uuid_field] } # partition_key
+    )
+    assert_equal(2, found_model_enumerator.count)
+
+    found_model_enumerator = FakeMultiKeyModel.find(
+      {
+        uuid_field: a_different_partition_key[:uuid_field], # partition_key
+        another_uuid_field: some_different_random_keys.sort.first # clustering_key
+      }
+    )
+    assert_equal(1, found_model_enumerator.count)
+    the_one_found = found_model_enumerator.first
+    assert_equal(a_different_partition_key[:uuid_field], the_one_found[:uuid_field])
+    assert_equal(some_different_random_keys.sort.first, the_one_found[:another_uuid_field])
   end
 end
