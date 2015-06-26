@@ -1,7 +1,6 @@
 # encoding: utf-8
 
 require 'cassandra'
-require 'corm/enhancements'
 require 'corm/exceptions'
 require 'corm/validations'
 require 'multi_json'
@@ -11,7 +10,6 @@ require 'digest/md5'
 module Corm
   class Model
     include Enumerable
-    extend Enhancements
     extend Validations
 
     @@cluster = nil
@@ -21,23 +19,15 @@ module Corm
     # give up...
     # If it fails `@@cluster` was nil and nil remains.
     def self.configure(opts = {})
-      attempts_wrapper do
-        @@cluster = Cassandra.cluster(opts)
-      end
+      @@cluster = Cassandra.cluster(opts)
     end
 
     def self.cluster
       @@cluster
     end
 
-    # Please, note the wrapper around the `session execute`.
-    # This wrapper (implemented in the Enhancements module) will recover some
-    # Cassandra::Error(s) retrying a couple of times.
-    #
-    # Note also that the <instance>#execute is just calling this Class#execute,
-    # as well as count, find, get, drop, etc...
     def self.execute(*args)
-      attempts_wrapper { session.execute(*args) }
+      session.execute(*args)
     end
 
     def self.field(name, type, pkey = false)
@@ -173,7 +163,7 @@ module Corm
     # The options hash support the ':limit' option to append at the statement;
     # the default is no limit.
     #
-    # The 'key_values' parameter is an Hash where the keys are the "column
+    # The 'params' parameter is an Hash where the keys are the "column
     # names" and the values... are the values.
     #
     # If the keys passed as parameter are more than the defined by the table the
@@ -181,50 +171,27 @@ module Corm
     # Other exceptions are raised when the keys doesn't include all the
     # (required) partition_keys or the clustering keys doesn't are in the
     # defined order.
-    def self.find(key_values = {}, query_options = {}, &block)
-
-      raise ArgumentError unless key_values.is_a?(Hash)
-      raise ArgumentError unless query_options.is_a?(Hash)
-
-      unless key_values.empty?
-        raise TooManyKeysError if there_are_too_many_keys_requested?(key_values)
-        raise MissingPartitionKey if a_partition_key_is_missing?(key_values)
-        raise UnknownClusteringKey if an_unknown_clustering_key_is_requested?(key_values)
-        # raise UnknownKey if an_unknown_key_is_requested?(key_values)
-        raise MissingClusteringKey if a_clustering_key_is_missing?(key_values)
+    def self.find(params = {}, opts = {}, &block)
+      validate_query(params, opts)
+      return to_enum(:find, params, opts) unless block_given?
+      statement_key = Array(opts.fetch(:statement_key, 'find')).flatten
+      statement_key.concat(params.keys)
+      statement_key.concat(["_limit#{opts[:limit]}"]) if opts[:limit]
+      statement_key = statement_key.join('_')
+      fields = params.map { |key, _value| "#{key} = ?" }
+      if statements[statement_key].nil?
+        statement = select_statement_for(fields, opts[:limit])
+        statements[statement_key] = session.prepare(statement)
       end
-
-      return to_enum(:find, key_values, query_options) unless block_given?
-
-      statement_find_key = Array(query_options.fetch(:statement_key, 'find')).flatten
-      field_names = []
-
-      key_values.each do |key, value|
-
-        statement_find_key << key.to_s
-        field_names << "#{key} = ?"
-      end
-
-      statement_find_key = statement_find_key.join('_')
-      statement_find_key.concat("_limit#{query_options[:limit]}") if query_options[:limit]
-
-      if statements[statement_find_key].nil?
-        statement = self.the_select_statement_for(key_values, field_names, query_options[:limit])
-        statements[statement_find_key] = session.prepare(statement)
-      end
-
-      execute(statements[statement_find_key], arguments: key_values).each do |cassandra_record_|
-        block.call(new(_cassandra_record: cassandra_record_))
+      execute(statements[statement_key], arguments: params.values).each do |res|
+        block.call(new(_cassandra_record: res))
       end
     end
 
     def self.get(relations)
-      query_options = {
-        limit: 1,
-        statement_key: 'get'
-      }
-      cassandra_record = self.find(relations, query_options).first
-      return cassandra_record ? cassandra_record : nil
+      query_options = { limit: 1, statement_key: 'get' }
+      cassandra_record = find(relations, query_options).first
+      cassandra_record ? cassandra_record : nil
     end
 
     def self.keyspace(name = nil)
@@ -241,11 +208,9 @@ module Corm
                     "{'class': 'SimpleStrategy', 'replication_factor': '1'}"
       durable_writes = opts[:durable_writes].nil? ? true : opts[:durable_writes]
       if_not_exists = opts[:if_not_exists] ? 'IF NOT EXISTS' : ''
-      attempts_wrapper do
-        cluster.connect.execute(
-          "CREATE KEYSPACE #{if_not_exists} #{keyspace} WITH replication = #{replication} AND durable_writes = #{durable_writes};"
-        )
-      end
+      cluster.connect.execute(
+        "CREATE KEYSPACE #{if_not_exists} #{keyspace} WITH replication = #{replication} AND durable_writes = #{durable_writes};"
+      )
     end
 
     def self.primary_key(partition_key = nil, *cols)
@@ -257,15 +222,15 @@ module Corm
     end
 
     def self.primary_key_count
-      self.primary_key.flatten.count
+      primary_key.flatten.count
     end
 
     def self.partition_key
-      self.primary_key.first.map(&:to_sym)
+      primary_key.first.map(&:to_sym)
     end
 
     def self.clustering_key
-      self.primary_key.count == 2 ? self.primary_key[1].flatten.map(&:to_sym) : []
+      primary_key.count == 2 ? primary_key[1].flatten.map(&:to_sym) : []
     end
 
     def self.properties(*args)
@@ -282,12 +247,10 @@ module Corm
     # This operation is wrapped by the retry policy (module Enhancements).
     def self.session
       unless class_variable_defined?(:@@session)
-        attempts_wrapper do
-          class_variable_set(
-            :@@session,
-            cluster.connect(keyspace)
-          )
-        end
+        class_variable_set(
+          :@@session,
+          cluster.connect(keyspace)
+        )
       end
       class_variable_get :@@session
     end
@@ -366,6 +329,20 @@ module Corm
 
     protected
 
+    ##
+    # Create and return the proper query to find the C* entries, given an array
+    # of keys.
+    #
+    # @param key_values An array of key names; can be empty, cannot be, in size, greater than the length of the model keys.
+    # @param field_names The "column names" for the `WHERE` clause.
+    def self.select_statement_for(fields, limit = nil)
+      statement  = "SELECT * FROM #{keyspace}.#{table}"
+      statement += " WHERE #{fields.join(' AND ')}" unless fields.empty?
+      statement += " LIMIT #{limit.to_i}" if limit.to_i > 0
+      statement += ';'
+      statement
+    end
+
     def execute(*args)
       self.class.execute(*args)
     end
@@ -392,23 +369,6 @@ module Corm
 
     def table
       self.class.table
-    end
-
-    ##
-    # Create and return the proper query to find the C* entries, given an array
-    # of keys.
-    #
-    # @param key_values An array of key names; can be empty, cannot be, in size, greater than the length of the model keys.
-    # @param field_names The "column names" for the `WHERE` clause.
-    def self.the_select_statement_for(key_values, field_names, limit = nil)
-      limit = "LIMIT #{limit.to_i}" if (limit && limit > 0)
-      if key_values.empty?
-        return "SELECT * FROM #{keyspace}.#{table} #{limit} ;"
-      elsif key_values.count > self.primary_key_count
-        raise Corm::TooManyKeysError
-      else
-        return "SELECT * FROM #{keyspace}.#{table} WHERE #{field_names.join(' AND ')} #{limit} ;"
-      end
     end
   end
 end

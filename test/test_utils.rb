@@ -2,7 +2,6 @@ require 'corm'
 
 module TestUtils
   class FakeModel < Corm::Model
-
     keyspace  :corm_test
     table     :corm_model_tests
     # Not working yet in ruby-driver!
@@ -21,7 +20,6 @@ module TestUtils
     #   'read_repair_chance = 0.0',
     #   'speculative_retry = "99.0PERCENTILE"'
     # )
-
     field :uuid_field,      :text,      true
     field :text_field,      :text
     field :int_field,       :int
@@ -36,10 +34,8 @@ module TestUtils
   end
 
   class FakeMultiKeyModel < Corm::Model
-
     keyspace  :corm_test
     table     :corm_multi_key_model_tests
-
     field :uuid_field,          :text
     field :another_uuid_field,  :text
     field :text_field,          :text
@@ -52,15 +48,12 @@ module TestUtils
     field :set_text_field,      'set<TEXT>'
     field :map_field,           'map<JSON, JSON>'
     field :map_text_field,      'map<TEXT, TEXT>'
-
     primary_key [:uuid_field], :another_uuid_field
   end
 
   class FakeMultiMultiKeyModel < Corm::Model
-
     keyspace  :corm_test
     table     :corm_multi_multi_key_model_tests
-
     field :uuid_field,          :text
     field :another_uuid_field,  :text
     field :still_another_uuid_field,  :text
@@ -74,7 +67,6 @@ module TestUtils
     field :set_text_field,      'set<TEXT>'
     field :map_field,           'map<JSON, JSON>'
     field :map_text_field,      'map<TEXT, TEXT>'
-
     primary_key [:uuid_field], [:another_uuid_field, :still_another_uuid_field]
   end
 
@@ -83,8 +75,12 @@ module TestUtils
   def setup_corm!
     @logger = Logger.new(STDOUT).tap { |logger| logger.level = Logger::WARN }
 
+    Corm::Model.configure(
+      hosts: ['127.0.0.1'],
+      logger: @logger,
+      retry_policy: Corm::Retry::Policies::Default.new
+    )
     MODELS.each do |model|
-      model.configure(hosts: ['127.0.0.1'], logger: @logger)
       model.keyspace!(if_not_exists: true)
       model.table!(if_not_exists: true)
     end
@@ -98,34 +94,33 @@ module TestUtils
       timestamp_field: Time.now,
       list_field: [
         {
-          "key" => "value"
+          'key' => 'value'
         },
         {
-          "key2" => "value2"
-        },
+          'key2' => 'value2'
+        }
       ],
       set_field: Set.new([
         {
-          "key" => "value"
+          'key' => 'value'
         },
         {
-          "key2" => "value2"
-        },
+          'key2' => 'value2'
+        }
       ]),
-      set_text_field: ["a","b","c"],
+      set_text_field: %w(a b c),
       map_field: {
         {
-          "key" => "value"
+          'key' => 'value'
         } => {
-          "key2" => "value2"
-        },
+          'key2' => 'value2'
+        }
       },
       map_text_field: {
-        "key" => "value",
-        "key2" => "value2"
+        'key' => 'value',
+        'key2' => 'value2'
       }
     }
-
     @data_with_nils = {
       uuid_field: 'myuuid',
       text_field: nil,
@@ -139,18 +134,10 @@ module TestUtils
       map_field: nil,
       map_text_field: nil
     }
-
-    @some_random_keys = %w[ foo bar lol meh ]
+    @some_random_keys = %w(foo bar lol meh)
   end
 
   def teardown_corm!
-    MODELS.each do |model|
-      tablename = [ model.keyspace, model.table ].compact.join('.')
-      model.cluster.connect.tap do |connection|
-        connection.execute("TRUNCATE #{tablename};") rescue nil
-        connection.execute("DROP TABLE IF EXISTS #{tablename};")
-        connection.close
-      end
-    end
+    MODELS.each(&:drop!)
   end
 end
