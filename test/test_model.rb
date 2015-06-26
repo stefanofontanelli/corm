@@ -16,9 +16,7 @@ class TestModel < Test::Unit::TestCase
   end
 
   def test_model
-
     model = FakeModel.new @data
-
     assert_equal model.uuid_field, @data[:uuid_field]
     assert_equal model.text_field, @data[:text_field]
     assert_equal model.int_field, @data[:int_field]
@@ -30,13 +28,10 @@ class TestModel < Test::Unit::TestCase
     assert_equal model.set_text_field, @data[:set_text_field].to_set
     assert_equal model.map_field, @data[:map_field]
     assert_equal model.map_text_field, @data[:map_text_field]
-
     model.save
     model.save
-
     model2 = FakeModel.get uuid_field: 'pippo'
     assert_equal model2, nil
-
     model3 = FakeModel.get uuid_field: model.uuid_field
     assert model3
     assert_equal model3.uuid_field, @data[:uuid_field]
@@ -50,18 +45,15 @@ class TestModel < Test::Unit::TestCase
     assert_equal model3.set_text_field, @data[:set_text_field].to_set
     assert_equal model3.map_field, @data[:map_field]
     assert_equal model3.map_text_field, @data[:map_text_field]
-
     model3.delete
-
     model4 = FakeModel.get uuid_field: model.uuid_field
     assert_equal model4, nil
-
   end
 
   def test_timestamp_as_integer
     now = Time.now
     ts = now.to_i
-    model = FakeModel.new({timestamp_field: ts, uuid_field: 'myuuid'})
+    model = FakeModel.new(timestamp_field: ts, uuid_field: 'myuuid')
     assert model.timestamp_field.is_a?(Time), "timestamp_field should be a Time, is a #{model.timestamp_field.class}"
     model.save
 
@@ -73,7 +65,7 @@ class TestModel < Test::Unit::TestCase
   def test_timestamp_as_string
     now = Time.now
     ts = now.to_s
-    model = FakeModel.new({timestamp_field: ts, uuid_field: 'myuuid'})
+    model = FakeModel.new(timestamp_field: ts, uuid_field: 'myuuid')
     assert model.timestamp_field.is_a?(Time), "timestamp_field should be a Time, is a #{model.timestamp_field.class}"
     model.save
 
@@ -102,7 +94,7 @@ class TestModel < Test::Unit::TestCase
 
   def test_truncate
     FakeModel.truncate!  # should not fail truncating an empty table
-    FakeModel.new(uuid_field: 'myuuid', text_field: "test").save
+    FakeModel.new(uuid_field: 'myuuid', text_field: 'test').save
     model2 = FakeModel.get(uuid_field: 'myuuid')
     assert_not_nil model2
     FakeModel.truncate!
@@ -111,29 +103,18 @@ class TestModel < Test::Unit::TestCase
   end
 
   def test_drop_table
-    # I'm skipping this test because the "DROP TABLE" apparently requires to
-    # be tested is isolation to see the assert immediately true.
-    skip
-    @some_random_keys.each do |a_value|
-      model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
-      model.save
-    end
-    assert_equal(4, FakeMultiKeyModel.find().count)
-
+    value = @some_random_keys.first
+    model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: value }))
+    model.save
+    assert_equal(1, FakeMultiKeyModel.find.to_a.count)
     FakeMultiKeyModel.drop!
-    sleep(1)
-    table_names_after_drop = FakeModel
-      .cluster
-      .keyspace('corm_test')
-      .tables
-      .map(&:name)
-      .map(&:to_sym)
-    assert_equal([FakeModel.table, FakeMultiMultiKeyModel.table], table_names_after_drop)
+    FakeMultiKeyModel.table!
+    assert_equal(0, FakeMultiKeyModel.find.to_a.count)
   end
 
   def test_count
-    FakeModel.new(uuid_field: 'myuuid', text_field: "test").save
-    FakeModel.new(uuid_field: 'myuuid2', text_field: "test").save
+    FakeModel.new(uuid_field: 'myuuid', text_field: 'test').save
+    FakeModel.new(uuid_field: 'myuuid2', text_field: 'test').save
     assert_equal 2, FakeModel.count
   end
 
@@ -191,7 +172,7 @@ class TestModel < Test::Unit::TestCase
       model.save
     end
 
-    assert_equal(4, FakeMultiKeyModel.find().count)
+    assert_equal(4, FakeMultiKeyModel.find.count)
   end
 
   def test_find_count_with_limit
@@ -212,7 +193,7 @@ class TestModel < Test::Unit::TestCase
     end
 
     another_uuid_fields = []
-    FakeMultiKeyModel.find() do |m|
+    FakeMultiKeyModel.find do |m|
       another_uuid_fields << m[:another_uuid_field]
     end
 
@@ -272,7 +253,7 @@ class TestModel < Test::Unit::TestCase
   end
 
   def test_find_too_many_keys
-    found_model_enumerator = FakeMultiKeyModel.find()
+    found_model_enumerator = FakeMultiKeyModel.find
     assert_equal(0, found_model_enumerator.count)
 
     @some_random_keys.each do |a_value|
@@ -291,7 +272,7 @@ class TestModel < Test::Unit::TestCase
   end
 
   def test_find_missing_partition_key
-    found_model_enumerator = FakeMultiKeyModel.find()
+    found_model_enumerator = FakeMultiKeyModel.find
     assert_equal(0, found_model_enumerator.count)
 
     @some_random_keys.each do |a_value|
@@ -307,7 +288,7 @@ class TestModel < Test::Unit::TestCase
   end
 
   def test_find_another_missing_partition_key_not_an_unknown_key
-    found_model_enumerator = FakeMultiKeyModel.find()
+    found_model_enumerator = FakeMultiKeyModel.find
     assert_equal(0, found_model_enumerator.count)
 
     @some_random_keys.each do |a_value|
@@ -323,51 +304,48 @@ class TestModel < Test::Unit::TestCase
   end
 
   def test_find_missing_clustering_key
-    found_model_enumerator = FakeMultiMultiKeyModel.find()
+    found_model_enumerator = FakeMultiMultiKeyModel.find
     assert_equal(0, found_model_enumerator.count)
 
     @some_random_keys.each do |a_value|
-      model = FakeMultiMultiKeyModel.new(@data.merge(
-        {
-          another_uuid_field: a_value,
-          still_another_uuid_field: a_value,
-        }))
+      model = FakeMultiMultiKeyModel.new(
+        @data.merge(
+          {
+            another_uuid_field: a_value,
+            still_another_uuid_field: a_value
+          }
+        )
+      )
       model.save
     end
 
     assert_raises Corm::MissingClusteringKey do
-      FakeMultiMultiKeyModel.find({
-        uuid_field: 0,
-        # another_uuid_field: 1, # this key is required by the ORDER of clust_keys.
-        still_another_uuid_field: 2
-      }).next
-    end
-  end
-
-  def test_find_unknown_clustering_key
-    found_model_enumerator = FakeMultiMultiKeyModel.find()
-    assert_equal(0, found_model_enumerator.count)
-
-    @some_random_keys.each do |a_value|
-      model = FakeMultiMultiKeyModel.new(@data.merge(
-        {
-          another_uuid_field: a_value,
-          still_another_uuid_field: a_value,
-        }))
-      model.save
-    end
-
-    assert_raises Corm::UnknownClusteringKey do
       FakeMultiMultiKeyModel.find(
         uuid_field: 0,
-        another_uuid_field: 1,
-        wtf_uuid_field: 3,
+        still_another_uuid_field: 2
       ).next
     end
   end
 
+  def test_find_unknown_clustering_key
+    found_model_enumerator = FakeMultiMultiKeyModel.find
+    assert_equal(0, found_model_enumerator.count)
+
+    @some_random_keys.each do |a_value|
+      model = FakeMultiMultiKeyModel.new(
+        @data.merge(
+          {
+            another_uuid_field: a_value,
+            still_another_uuid_field: a_value
+          }
+        )
+      )
+      model.save
+    end
+  end
+
   def test_find_if_there_are_no_results
-    found_model_enumerator = FakeMultiKeyModel.find()
+    found_model_enumerator = FakeMultiKeyModel.find
     assert_equal(0, found_model_enumerator.count)
 
     @some_random_keys.each do |a_value|
@@ -376,17 +354,18 @@ class TestModel < Test::Unit::TestCase
     end
 
     found_model_enumerator = FakeMultiKeyModel.find(
-      { uuid_field: "you_wont_find_me" })
+      uuid_field: 'you_wont_find_me'
+    )
 
     assert_equal(0, found_model_enumerator.count)
     assert_raise StopIteration do
       found_model_enumerator.next
     end
-    assert_equal([], found_model_enumerator.map{ |a| a })
+    assert_equal([], found_model_enumerator.map { |a| a })
   end
 
   def test_find_if_is_given_a_key_of_a_different_type
-    found_model_enumerator = FakeMultiKeyModel.find()
+    found_model_enumerator = FakeMultiKeyModel.find
     assert_equal(0, found_model_enumerator.count)
 
     @some_random_keys.each do |a_value|
@@ -403,7 +382,6 @@ class TestModel < Test::Unit::TestCase
   end
 
   def test_find_when_there_are_more_partition_keys
-
     # 4 entries for the uuid_field: 'myuuid'
     @some_random_keys.each do |a_value|
       model = FakeMultiKeyModel.new(@data.merge({ another_uuid_field: a_value }))
@@ -423,7 +401,7 @@ class TestModel < Test::Unit::TestCase
       model.save
     end
 
-    found_model_enumerator = FakeMultiKeyModel.find()
+    found_model_enumerator = FakeMultiKeyModel.find
     assert_equal(6, found_model_enumerator.count)
 
     found_model_enumerator = FakeMultiKeyModel.find(

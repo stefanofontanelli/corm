@@ -1,9 +1,10 @@
 # encoding: utf-8
 
 module Corm
-  class TooManyKeysError < StandardError; end
-  class UnknownKey < StandardError; end
-  class MissingPartitionKey < StandardError; end
-  class MissingClusteringKey < StandardError; end
-  class UnknownClusteringKey < StandardError; end
+  class GenericError < StandardError; end
+  class TooManyKeysError < GenericError; end
+  class UnknownPrimaryKey < GenericError; end
+  class MissingPartitionKey < GenericError; end
+  class MissingClusteringKey < GenericError; end
+  class UnknownClusteringKey < GenericError; end
 end
