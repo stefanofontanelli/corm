@@ -312,7 +312,7 @@ module Corm
       @record ||= {}
     end
 
-    def save(exclude_nil_values = false)
+    def save(exclude_nil_values = false, timeout = 30)
       keys = fields.keys.map do |k|
         v = !exclude_nil_values || @raw_values.empty? ? record[k] : @raw_values[k]
         exclude_nil_values && v.nil? ? nil : k
@@ -322,7 +322,8 @@ module Corm
         session.prepare(
           "INSERT INTO #{keyspace}.#{table} (#{keys.join(',')}) VALUES (#{keys.map { '?' }.join(',')});"
         ),
-        arguments: keys.map { |k| record[k] }
+        arguments: keys.map { |k| record[k] },
+        timeout: timeout
       )
       nil
     end
