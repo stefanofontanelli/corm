@@ -12,4 +12,5 @@ Gem::Specification.new do |s|
   s.add_dependency 'multi_json', '~> 1.10.1', '>= 1.10.1'
   s.add_development_dependency 'rake', '~> 10.0.0', '>= 10.0.0'
   s.add_development_dependency 'pry', '>= 0.10.1', '>= 0.10.1'
+  s.add_development_dependency 'test-unit', '~> 3.1.2'
 end
