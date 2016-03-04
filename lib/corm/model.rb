@@ -293,6 +293,11 @@ module Corm
       ) unless primary_key[0].to_a.empty?
       pkey << primary_key[1].join(',') unless primary_key[1].to_a.empty?
       pkey = pkey.join(',')
+
+      ignored_fields.each do |k, _|
+        fields.delete(k.to_sym) || fields.delete(k.to_s)
+      end unless ignored_fields.empty?
+
       fields_ = fields.to_a.map { |a| a.join(' ') }.concat(["PRIMARY KEY (#{pkey})"]).join(', ')
       definition = "CREATE TABLE #{if_not_exists} #{table_} (#{fields_})".downcase.gsub('json', 'text')
       definition = properties.to_a.empty? ? "#{definition};" : "#{definition} WITH #{properties.to_a.join ' AND '};"
