@@ -12,6 +12,8 @@ module Corm
     include Enumerable
     extend Validations
 
+    IGNORED_TYPES = %w(ignored).freeze
+
     @@cluster = nil
 
     # Since the `Cassandra.cluster` method wants to connect, the configure will
@@ -31,7 +33,14 @@ module Corm
     end
 
     def self.field(name, type, pkey = false)
-      fields[name.to_s.downcase] = type.to_s.downcase
+      t = type.to_s.downcase
+      if IGNORED_TYPES.include?(t)
+        ignored_fields[name.to_s.downcase] = t
+        return nil
+      else
+        fields[name.to_s.downcase] = t
+      end
+
       primary_key name.to_s.downcase if pkey
 
       send :define_method, name.to_s.downcase do
@@ -130,11 +139,17 @@ module Corm
     end
 
     def self.fields
-      class_variable_set(
-        :@@fields,
-        {}
-      ) unless class_variable_defined?(:@@fields)
+      unless class_variable_defined?(:@@fields)
+        class_variable_set(:@@fields, {})
+      end
       class_variable_get(:@@fields)
+    end
+
+    def self.ignored_fields
+      unless class_variable_defined?(:@@ignored_fields)
+        class_variable_set( :@@ignored_fields, {})
+      end
+      class_variable_get(:@@ignored_fields)
     end
 
     def self.count
@@ -291,6 +306,11 @@ module Corm
     def initialize(opts = {})
       @record = opts.delete(:_cassandra_record) ||
                 opts.delete('_cassandra_record')
+
+      ignored_fields.each do |k, _|
+        opts.delete(k.to_sym) || opts.delete(k.to_s)
+      end unless ignored_fields.empty?
+
       @raw_values = {}
       opts.each { |k, v| send("#{k}=", v) } if @record.nil?
     end
@@ -354,6 +374,10 @@ module Corm
 
     def fields
       self.class.fields
+    end
+
+    def ignored_fields
+      self.class.ignored_fields
     end
 
     def primary_key
