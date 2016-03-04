@@ -31,6 +31,7 @@ module TestUtils
     field :set_text_field,  'set<TEXT>'
     field :map_field,       'map<JSON, JSON>'
     field :map_text_field,  'map<TEXT, TEXT>'
+    field :ignore_me,       :ignored
   end
 
   class FakeMultiKeyModel < Corm::Model
@@ -48,6 +49,7 @@ module TestUtils
     field :set_text_field,      'set<TEXT>'
     field :map_field,           'map<JSON, JSON>'
     field :map_text_field,      'map<TEXT, TEXT>'
+    field :ignore_me,           :ignored
     primary_key [:uuid_field], :another_uuid_field
   end
 
@@ -67,6 +69,7 @@ module TestUtils
     field :set_text_field,      'set<TEXT>'
     field :map_field,           'map<JSON, JSON>'
     field :map_text_field,      'map<TEXT, TEXT>'
+    field :ignore_me,           :ignored
     primary_key [:uuid_field], [:another_uuid_field, :still_another_uuid_field]
   end
 
@@ -119,7 +122,8 @@ module TestUtils
       map_text_field: {
         'key' => 'value',
         'key2' => 'value2'
-      }
+      },
+      ignore_me: 'Please, ignore me'
     }
     @data_with_nils = {
       uuid_field: 'myuuid',
@@ -132,7 +136,8 @@ module TestUtils
       set_field: nil,
       set_text_field: nil,
       map_field: nil,
-      map_text_field: nil
+      map_text_field: nil,
+      ignore_me: nil
     }
     @some_random_keys = %w(foo bar lol meh)
   end

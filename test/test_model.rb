@@ -28,6 +28,7 @@ class TestModel < Test::Unit::TestCase
     assert_equal model.set_text_field, @data[:set_text_field].to_set
     assert_equal model.map_field, @data[:map_field]
     assert_equal model.map_text_field, @data[:map_text_field]
+    assert_false model.respond_to?(:ignore_me)
     model.save
     model.save
     model2 = FakeModel.get uuid_field: 'pippo'
@@ -45,6 +46,7 @@ class TestModel < Test::Unit::TestCase
     assert_equal model3.set_text_field, @data[:set_text_field].to_set
     assert_equal model3.map_field, @data[:map_field]
     assert_equal model3.map_text_field, @data[:map_text_field]
+    assert_equal false, model3.respond_to?(:ignore_me)
     model3.delete
     model4 = FakeModel.get uuid_field: model.uuid_field
     assert_equal model4, nil
