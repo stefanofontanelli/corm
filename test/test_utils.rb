@@ -35,6 +35,22 @@ module TestUtils
     field :__id,            :ignored
   end
 
+  class FakeModelExplosive < Corm::Model
+    keyspace :corm_test
+    table :corm_model_explosive
+    field :uuid_field, :text, true
+    field :ignore_me, :ignored
+    field :__id, :text
+  end
+
+  class FakeModelDefused < Corm::Model
+    keyspace :corm_test
+    table :corm_model_defused
+    field :uuid_field, :text, true
+    field :ignore_me, :ignored
+    field :__id, :ignored
+  end
+
   class FakeMultiKeyModel < Corm::Model
     keyspace  :corm_test
     table     :corm_multi_key_model_tests
