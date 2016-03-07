@@ -312,12 +312,13 @@ module Corm
       @record = opts.delete(:_cassandra_record) ||
                 opts.delete('_cassandra_record')
 
+      data = opts.clone
       ignored_fields.each do |k, _|
-        opts.delete(k.to_sym) || opts.delete(k.to_s)
+        data.delete(k.to_sym) || data.delete(k.to_s)
       end unless ignored_fields.empty?
 
       @raw_values = {}
-      opts.each { |k, v| send("#{k}=", v) } if @record.nil?
+      data.each { |k, v| send("#{k}=", v) } if @record.nil?
     end
 
     def delete
