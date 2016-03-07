@@ -3,6 +3,8 @@ require 'corm'
 require 'logger'
 require 'test/unit'
 require 'test_utils'
+require 'securerandom'
+require 'pry'
 
 class TestModel < Test::Unit::TestCase
   include TestUtils
@@ -50,6 +52,27 @@ class TestModel < Test::Unit::TestCase
     model3.delete
     model4 = FakeModel.get uuid_field: model.uuid_field
     assert_equal model4, nil
+  end
+
+  def test_table_does_not_ignore_fields_and_explode
+    fme = FakeModelExplosive
+    fme.keyspace!(if_not_exists: true)
+    assert_raise Cassandra::Errors::SyntaxError do
+      fme.table!(if_not_exists: true)
+    end
+  end
+
+  def test_table_ignore_fields_and_does_not_explode
+    fmd = FakeModelDefused
+    fmd.keyspace!(if_not_exists: true)
+    fmd.table!(if_not_exists: true)
+    dt = {
+      uuid_field: SecureRandom.hex(13),
+      __id: SecureRandom.hex(13) }
+    fmd.new(dt).save
+    entry = fmd.get(uuid_field: dt[:uuid_field])
+    assert(entry.respond_to?(:uuid_field))
+    assert_false(entry.respond_to?(:__id))
   end
 
   def test_timestamp_as_integer
@@ -121,9 +144,12 @@ class TestModel < Test::Unit::TestCase
   end
 
   def test_to_h
-    model = FakeModel.new @data
-    @data[:set_text_field] = @data[:set_text_field].to_set
-    assert_equal @data, model.to_h
+    dt = @data.clone
+    model = FakeModel.new(dt)
+    dt[:set_text_field] = dt[:set_text_field].to_set
+    ignored = model.send(:ignored_fields).keys
+    ignored.each { |k| dt.delete(k.to_sym) }
+    assert_equal(dt, model.to_h)
   end
 
   def test_to_json
@@ -142,7 +168,7 @@ class TestModel < Test::Unit::TestCase
     assert_equal(@data[:map_text_field], new_model.map_text_field)
   end
 
-  def test_each
+  def test_each_1
     model = FakeModel.new @data
     @data[:set_text_field] = @data[:set_text_field].to_set
     assert(model.is_a?(Enumerable))
@@ -150,6 +176,13 @@ class TestModel < Test::Unit::TestCase
     model.each do |k, v|
       assert_equal(v, @data[k.to_sym])
     end
+  end
+
+  def test_each_2
+    model = FakeModel.new @data
+    @data[:set_text_field] = @data[:set_text_field].to_set
+    ignored = model.send(:ignored_fields).keys
+    ignored.each { |k| @data.delete(k.to_sym) }
     assert_equal(model.map { |k, _| k }, @data.map { |k, _| k })
   end
 
