@@ -31,6 +31,24 @@ module TestUtils
     field :set_text_field,  'set<TEXT>'
     field :map_field,       'map<JSON, JSON>'
     field :map_text_field,  'map<TEXT, TEXT>'
+    field :ignore_me,       :ignored
+    field :__id,            :ignored
+  end
+
+  class FakeModelExplosive < Corm::Model
+    keyspace :corm_test
+    table :corm_model_explosive
+    field :uuid_field, :text, true
+    field :ignore_me, :ignored
+    field :__id, :text
+  end
+
+  class FakeModelDefused < Corm::Model
+    keyspace :corm_test
+    table :corm_model_defused
+    field :uuid_field, :text, true
+    field :ignore_me, :ignored
+    field :__id, :ignored
   end
 
   class FakeMultiKeyModel < Corm::Model
@@ -48,6 +66,8 @@ module TestUtils
     field :set_text_field,      'set<TEXT>'
     field :map_field,           'map<JSON, JSON>'
     field :map_text_field,      'map<TEXT, TEXT>'
+    field :ignore_me,           :ignored
+    field :__id,                :ignored
     primary_key [:uuid_field], :another_uuid_field
   end
 
@@ -67,6 +87,8 @@ module TestUtils
     field :set_text_field,      'set<TEXT>'
     field :map_field,           'map<JSON, JSON>'
     field :map_text_field,      'map<TEXT, TEXT>'
+    field :ignore_me,           :ignored
+    field :__id,                :ignored
     primary_key [:uuid_field], [:another_uuid_field, :still_another_uuid_field]
   end
 
@@ -119,7 +141,9 @@ module TestUtils
       map_text_field: {
         'key' => 'value',
         'key2' => 'value2'
-      }
+      },
+      ignore_me: 'Please, ignore me',
+      __id: 'I am dangerous'
     }
     @data_with_nils = {
       uuid_field: 'myuuid',
@@ -132,7 +156,9 @@ module TestUtils
       set_field: nil,
       set_text_field: nil,
       map_field: nil,
-      map_text_field: nil
+      map_text_field: nil,
+      ignore_me: nil,
+      __id: nil
     }
     @some_random_keys = %w(foo bar lol meh)
   end
